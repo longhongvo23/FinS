@@ -25,12 +25,16 @@
 # ===================================================================
 # Logs
 # ===================================================================
-logs/
+# Only ignore log files, NOT source code folders named "logs"
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+# Ignore logs directory at root and in common locations
+/logs/
+**/target/logs/
+**/build/logs/
 
 # ===================================================================
 # OS Files
