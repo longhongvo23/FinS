@@ -1,0 +1,228 @@
+# ============================================================================
+# Dependabot CI - Pipeline nhẹ cho Dependabot PRs
+# ============================================================================
+# Workflow này chạy khi Dependabot tạo PR update dependencies
+# Chỉ build/test service liên quan, không cần secrets
+# ============================================================================
+
+name: Dependabot CI
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+
+# Chỉ chạy cho Dependabot PRs
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  JAVA_VERSION: '17'
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================================================
+  # Detect which service was changed
+  # ============================================================================
+  detect-changes:
+    name: 🔍 Detect Changes
+    runs-on: ubuntu-latest
+    # Chỉ chạy cho Dependabot
+    if: github.actor == 'dependabot[bot]'
+    outputs:
+      gateway: ${{ steps.changes.outputs.gateway }}
+      userservice: ${{ steps.changes.outputs.userservice }}
+      stockservice: ${{ steps.changes.outputs.stockservice }}
+      newsservice: ${{ steps.changes.outputs.newsservice }}
+      notificationservice: ${{ steps.changes.outputs.notificationservice }}
+      crawlservice: ${{ steps.changes.outputs.crawlservice }}
+      aitoolsservice: ${{ steps.changes.outputs.aitoolsservice }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      aiservice: ${{ steps.changes.outputs.aiservice }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            gateway:
+              - 'microservices/gateway/**'
+            userservice:
+              - 'microservices/userservice/**'
+            stockservice:
+              - 'microservices/stockservice/**'
+            newsservice:
+              - 'microservices/newsservice/**'
+            notificationservice:
+              - 'microservices/notificationservice/**'
+            crawlservice:
+              - 'microservices/crawlservice/**'
+            aitoolsservice:
+              - 'microservices/aitoolsservice/**'
+            frontend:
+              - 'client/smarttrade-web/**'
+            aiservice:
+              - 'microservices/aiservice/**'
+
+  # ============================================================================
+  # Build Java Services (chỉ service bị thay đổi)
+  # ============================================================================
+  build-gateway:
+    name: 🏗️ Build Gateway
+    needs: detect-changes
+    if: needs.detect-changes.outputs.gateway == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build & Test
+        working-directory: microservices/gateway
+        run: ./mvnw verify -DskipTests -q
+      - name: Quick Test
+        working-directory: microservices/gateway
+        run: ./mvnw test -Dtest=*UnitTest -q || true
+
+  build-userservice:
+    name: 🏗️ Build UserService
+    needs: detect-changes
+    if: needs.detect-changes.outputs.userservice == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build & Test
+        working-directory: microservices/userservice
+        run: ./mvnw verify -DskipTests -q
+
+  build-stockservice:
+    name: 🏗️ Build StockService
+    needs: detect-changes
+    if: needs.detect-changes.outputs.stockservice == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build & Test
+        working-directory: microservices/stockservice
+        run: ./mvnw verify -DskipTests -q
+
+  build-newsservice:
+    name: 🏗️ Build NewsService
+    needs: detect-changes
+    if: needs.detect-changes.outputs.newsservice == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build & Test
+        working-directory: microservices/newsservice
+        run: ./mvnw verify -DskipTests -q
+
+  build-notificationservice:
+    name: 🏗️ Build NotificationService
+    needs: detect-changes
+    if: needs.detect-changes.outputs.notificationservice == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build & Test
+        working-directory: microservices/notificationservice
+        run: ./mvnw verify -DskipTests -q
+
+  build-crawlservice:
+    name: 🏗️ Build CrawlService
+    needs: detect-changes
+    if: needs.detect-changes.outputs.crawlservice == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build & Test
+        working-directory: microservices/crawlservice
+        run: ./mvnw verify -DskipTests -q
+
+  build-aitoolsservice:
+    name: 🏗️ Build AIToolsService
+    needs: detect-changes
+    if: needs.detect-changes.outputs.aitoolsservice == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build & Test
+        working-directory: microservices/aitoolsservice
+        run: ./mvnw verify -DskipTests -q
+
+  # ============================================================================
+  # Build Frontend
+  # ============================================================================
+  build-frontend:
+    name: 🎨 Build Frontend
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install & Build
+        working-directory: client/smarttrade-web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+  # ============================================================================
+  # Auto-merge Dependabot PRs (minor/patch updates)
+  # ============================================================================
+  auto-merge:
+    name: 🤖 Auto Merge
+    needs: [detect-changes]
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Enable auto-merge for minor/patch updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

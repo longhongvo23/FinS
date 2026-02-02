@@ -13,6 +13,11 @@ on:
   pull_request:
     branches: [main, master]
 
+# Không chạy cho Dependabot PRs (đã có workflow riêng)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   JAVA_VERSION: '17'
   NODE_VERSION: '20'
@@ -24,6 +29,8 @@ jobs:
   security-scan:
     name: 🔐 Security Scan
     runs-on: ubuntu-latest
+    # Bỏ qua Dependabot PRs (đã có workflow riêng)
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

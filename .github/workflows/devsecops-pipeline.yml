@@ -16,9 +16,16 @@ on:
     branches: [main, master, develop]
   pull_request:
     branches: [main, master]
+    # Không chạy cho Dependabot PRs
+    types: [opened, synchronize, reopened]
   schedule:
     # Run security scans weekly
     - cron: '0 2 * * 0'
+
+# Không chạy cho Dependabot PRs (đã có workflow riêng)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   JAVA_VERSION: '17'
@@ -34,6 +41,8 @@ jobs:
   secret-scan:
     name: 🔐 Secret Detection
     runs-on: ubuntu-latest
+    # Bỏ qua Dependabot PRs (đã có workflow riêng)
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

@@ -1,12 +1,17 @@
 # ============================================================================
-# Dependabot Configuration for FinS Project
-# Automatically checks for dependency updates and security vulnerabilities
+# Dependabot Configuration for FinS Project (Optimized)
+# ============================================================================
+# Tối ưu hóa để giảm số lượng PRs và tránh CI/CD overload
+# - Group các dependencies lại để giảm số PR
+# - Chỉ update security patches (bỏ qua minor updates)
+# - Giảm open-pull-requests-limit
 # ============================================================================
 
 version: 2
+
 updates:
   # ============================================================================
-  # Java/Maven Dependencies
+  # Java/Maven Dependencies - CHỈ SECURITY/PATCH UPDATES
   # ============================================================================
   - package-ecosystem: "maven"
     directory: "/microservices/gateway"
@@ -15,103 +20,158 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Ho_Chi_Minh"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "java"
-      - "security"
     commit-message:
       prefix: "deps(gateway):"
-
+    # Bỏ qua minor updates, chỉ lấy patch/security
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      spring-and-jhipster:
+        patterns:
+          - "org.springframework*"
+          - "tech.jhipster*"
+        
   - package-ecosystem: "maven"
     directory: "/microservices/userservice"
     schedule:
       interval: "weekly"
       day: "monday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "java"
     commit-message:
       prefix: "deps(userservice):"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "maven"
     directory: "/microservices/stockservice"
     schedule:
       interval: "weekly"
       day: "monday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "java"
     commit-message:
       prefix: "deps(stockservice):"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "maven"
     directory: "/microservices/newsservice"
     schedule:
       interval: "weekly"
       day: "monday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "java"
     commit-message:
       prefix: "deps(newsservice):"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "maven"
     directory: "/microservices/notificationservice"
     schedule:
       interval: "weekly"
       day: "monday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "java"
     commit-message:
       prefix: "deps(notificationservice):"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "maven"
     directory: "/microservices/crawlservice"
     schedule:
       interval: "weekly"
       day: "monday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "java"
     commit-message:
       prefix: "deps(crawlservice):"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "maven"
     directory: "/microservices/aitoolsservice"
     schedule:
       interval: "weekly"
       day: "monday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "java"
     commit-message:
       prefix: "deps(aitoolsservice):"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   # ============================================================================
-  # NPM Dependencies (Frontend)
+  # NPM Dependencies (Frontend) - Group tất cả lại
   # ============================================================================
   - package-ecosystem: "npm"
     directory: "/client/smarttrade-web"
     schedule:
       interval: "weekly"
       day: "tuesday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "javascript"
       - "frontend"
     commit-message:
       prefix: "deps(frontend):"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
     groups:
-      react:
+      all-frontend:
         patterns:
-          - "react*"
-          - "@types/react*"
-      vite:
-        patterns:
-          - "vite*"
-          - "@vitejs/*"
+          - "*"
 
   # ============================================================================
   # Python Dependencies (AI Service)
@@ -121,20 +181,28 @@ updates:
     schedule:
       interval: "weekly"
       day: "wednesday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "python"
-      - "ai"
     commit-message:
       prefix: "deps(aiservice):"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      all-python:
+        patterns:
+          - "*"
 
   # ============================================================================
-  # Docker Dependencies
+  # Docker Dependencies - Monthly only
   # ============================================================================
   - package-ecosystem: "docker"
     directory: "/microservices/aiservice"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "docker"
@@ -145,6 +213,7 @@ updates:
     directory: "/client/smarttrade-web"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "docker"
@@ -152,15 +221,20 @@ updates:
       prefix: "deps(docker):"
 
   # ============================================================================
-  # GitHub Actions
+  # GitHub Actions - Group all
   # ============================================================================
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "sunday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "ci/cd"
     commit-message:
       prefix: "deps(actions):"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
