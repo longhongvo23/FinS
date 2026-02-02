@@ -1,0 +1,21 @@
+# Cloudflare Tunnel Configuration for FinS
+# Save this as ~/.cloudflared/config.yml after running: cloudflared tunnel create fins
+
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /home/YOUR_USERNAME/.cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  # Frontend (React/Vue app)
+  - hostname: fins.yourdomain.com
+    service: http://localhost:3000
+  
+  # API Gateway
+  - hostname: api.fins.yourdomain.com
+    service: http://localhost:8080
+  
+  # Kafka UI (optional - for admin only)
+  - hostname: kafka.fins.yourdomain.com
+    service: http://localhost:9000
+  
+  # Catch-all rule (required)
+  - service: http_status:404
