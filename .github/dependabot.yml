@@ -1,0 +1,166 @@
+# ============================================================================
+# Dependabot Configuration for FinS Project
+# Automatically checks for dependency updates and security vulnerabilities
+# ============================================================================
+
+version: 2
+updates:
+  # ============================================================================
+  # Java/Maven Dependencies
+  # ============================================================================
+  - package-ecosystem: "maven"
+    directory: "/microservices/gateway"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Ho_Chi_Minh"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "java"
+      - "security"
+    commit-message:
+      prefix: "deps(gateway):"
+
+  - package-ecosystem: "maven"
+    directory: "/microservices/userservice"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "java"
+    commit-message:
+      prefix: "deps(userservice):"
+
+  - package-ecosystem: "maven"
+    directory: "/microservices/stockservice"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "java"
+    commit-message:
+      prefix: "deps(stockservice):"
+
+  - package-ecosystem: "maven"
+    directory: "/microservices/newsservice"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "java"
+    commit-message:
+      prefix: "deps(newsservice):"
+
+  - package-ecosystem: "maven"
+    directory: "/microservices/notificationservice"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "java"
+    commit-message:
+      prefix: "deps(notificationservice):"
+
+  - package-ecosystem: "maven"
+    directory: "/microservices/crawlservice"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "java"
+    commit-message:
+      prefix: "deps(crawlservice):"
+
+  - package-ecosystem: "maven"
+    directory: "/microservices/aitoolsservice"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "java"
+    commit-message:
+      prefix: "deps(aitoolsservice):"
+
+  # ============================================================================
+  # NPM Dependencies (Frontend)
+  # ============================================================================
+  - package-ecosystem: "npm"
+    directory: "/client/smarttrade-web"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "frontend"
+    commit-message:
+      prefix: "deps(frontend):"
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      vite:
+        patterns:
+          - "vite*"
+          - "@vitejs/*"
+
+  # ============================================================================
+  # Python Dependencies (AI Service)
+  # ============================================================================
+  - package-ecosystem: "pip"
+    directory: "/microservices/aiservice"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    labels:
+      - "dependencies"
+      - "python"
+      - "ai"
+    commit-message:
+      prefix: "deps(aiservice):"
+
+  # ============================================================================
+  # Docker Dependencies
+  # ============================================================================
+  - package-ecosystem: "docker"
+    directory: "/microservices/aiservice"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "deps(docker):"
+
+  - package-ecosystem: "docker"
+    directory: "/client/smarttrade-web"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "deps(docker):"
+
+  # ============================================================================
+  # GitHub Actions
+  # ============================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+    labels:
+      - "dependencies"
+      - "ci/cd"
+    commit-message:
+      prefix: "deps(actions):"

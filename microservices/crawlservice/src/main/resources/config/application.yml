@@ -115,7 +115,7 @@ spring:
         watch:
           enabled: false
     function:
-      definition: kafkaConsumer;kafkaProducer
+      definition: kafkaConsumer;kafkaProducer;priceUpdateProducer;newsUpdateProducer
     stream:
       kafka:
         binder:
@@ -132,6 +132,14 @@ spring:
           group: crawlservice
         kafkaProducer-out-0:
           content-type: text/plain
+          group: crawlservice
+        priceUpdateProducer-out-0:
+          destination: stock.price.updates
+          content-type: application/json
+          group: crawlservice
+        newsUpdateProducer-out-0:
+          destination: stock.news.updates
+          content-type: application/json
           group: crawlservice
   docker:
     compose:
@@ -261,12 +269,19 @@ application:
       - GOOGL
   stock-service:
     url: http://stockservice:8083
+  user-service:
+    url: http://userservice:8081
+  notification-service:
+    url: http://notificationservice:8085
   news-service:
     url: http://newsservice:8084
   crawl:
     historical:
+      enabled: true
       start-date: 2015-01-01
       interval: 1day
+    startup-backfill:
+      enabled: true  # Run backfill immediately when container starts
     schedule:
       daily-quote: "0 0 21 * * ?" # 9 PM UTC
       weekly-recommendation: "0 0 2 * * MON" # 2 AM Monday UTC

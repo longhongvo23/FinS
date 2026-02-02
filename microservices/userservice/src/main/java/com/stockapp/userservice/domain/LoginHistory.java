@@ -3,6 +3,7 @@ package com.stockapp.userservice.domain;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.stockapp.userservice.domain.enumeration.DeviceType;
 import com.stockapp.userservice.domain.enumeration.LoginMethod;
+import com.stockapp.userservice.security.encryption.Encrypted;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
@@ -31,6 +32,7 @@ public class LoginHistory implements Serializable {
     private LoginMethod loginMethod;
 
     @Size(max = 45)
+    @Encrypted(reason = "PII - IP address can identify user location")
     @Field("ip_address")
     private String ipAddress;
 
@@ -42,6 +44,7 @@ public class LoginHistory implements Serializable {
     private DeviceType deviceType;
 
     @Size(max = 200)
+    @Encrypted(reason = "PII - User location data")
     @Field("location")
     private String location;
 
@@ -189,7 +192,8 @@ public class LoginHistory implements Serializable {
         return this;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and
+    // setters here
 
     @Override
     public boolean equals(Object o) {
@@ -204,7 +208,8 @@ public class LoginHistory implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
+        // see
+        // https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
@@ -212,15 +217,15 @@ public class LoginHistory implements Serializable {
     @Override
     public String toString() {
         return "LoginHistory{" +
-            "id=" + getId() +
-            ", loginTime='" + getLoginTime() + "'" +
-            ", loginMethod='" + getLoginMethod() + "'" +
-            ", ipAddress='" + getIpAddress() + "'" +
-            ", userAgent='" + getUserAgent() + "'" +
-            ", deviceType='" + getDeviceType() + "'" +
-            ", location='" + getLocation() + "'" +
-            ", successful='" + getSuccessful() + "'" +
-            ", failureReason='" + getFailureReason() + "'" +
-            "}";
+                "id=" + getId() +
+                ", loginTime='" + getLoginTime() + "'" +
+                ", loginMethod='" + getLoginMethod() + "'" +
+                ", ipAddress='" + getIpAddress() + "'" +
+                ", userAgent='" + getUserAgent() + "'" +
+                ", deviceType='" + getDeviceType() + "'" +
+                ", location='" + getLocation() + "'" +
+                ", successful='" + getSuccessful() + "'" +
+                ", failureReason='" + getFailureReason() + "'" +
+                "}";
     }
 }

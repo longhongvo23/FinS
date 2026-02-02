@@ -44,7 +44,7 @@ public class RecommendationInternalResource {
                 request.recommendations() != null ? request.recommendations().size() : 0,
                 request.symbol());
 
-        return companyRepository.findBySymbol(request.symbol())
+        return companyRepository.findFirstBySymbol(request.symbol())
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Company not found: " + request.symbol())))
                 .flatMapMany(company -> {
                     if (request.recommendations() == null || request.recommendations().isEmpty()) {

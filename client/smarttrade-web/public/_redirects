@@ -1,0 +1,8 @@
+# SmartTrade AI - Render/Netlify Redirects
+# https://render.com/docs/redirects-rewrites
+
+# SPA fallback - all routes to index.html
+/*    /index.html   200
+
+# Force HTTPS (Render handles this automatically)
+# http://*   https://:splat   301

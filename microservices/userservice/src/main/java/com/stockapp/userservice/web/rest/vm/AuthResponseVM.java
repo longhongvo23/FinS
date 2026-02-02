@@ -33,6 +33,9 @@ public class AuthResponseVM implements Serializable {
     @Schema(description = "User authorities/roles")
     private String[] authorities;
 
+    @Schema(description = "User avatar URL")
+    private String avatarUrl;
+
     public AuthResponseVM() {
     }
 
@@ -105,6 +108,14 @@ public class AuthResponseVM implements Serializable {
 
     public void setAuthorities(String[] authorities) {
         this.authorities = authorities;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     @Override

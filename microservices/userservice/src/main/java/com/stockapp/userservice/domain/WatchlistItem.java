@@ -33,6 +33,12 @@ public class WatchlistItem implements Serializable {
     @Field("notes")
     private String notes;
 
+    /**
+     * User ID for direct lookup without embedding full AppUser
+     */
+    @Field("user_id")
+    private String userId;
+
     @Field("user")
     @JsonIgnoreProperties(value = { "authorities", "profile", "notificationSetting" }, allowSetters = true)
     private AppUser user;
@@ -91,6 +97,19 @@ public class WatchlistItem implements Serializable {
         this.notes = notes;
     }
 
+    public String getUserId() {
+        return this.userId;
+    }
+
+    public WatchlistItem userId(String userId) {
+        this.setUserId(userId);
+        return this;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
     public AppUser getUser() {
         return this.user;
     }
@@ -104,7 +123,8 @@ public class WatchlistItem implements Serializable {
         return this;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and
+    // setters here
 
     @Override
     public boolean equals(Object o) {
@@ -119,7 +139,8 @@ public class WatchlistItem implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
+        // see
+        // https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
@@ -127,10 +148,10 @@ public class WatchlistItem implements Serializable {
     @Override
     public String toString() {
         return "WatchlistItem{" +
-            "id=" + getId() +
-            ", symbol='" + getSymbol() + "'" +
-            ", addedAt='" + getAddedAt() + "'" +
-            ", notes='" + getNotes() + "'" +
-            "}";
+                "id=" + getId() +
+                ", symbol='" + getSymbol() + "'" +
+                ", addedAt='" + getAddedAt() + "'" +
+                ", notes='" + getNotes() + "'" +
+                "}";
     }
 }

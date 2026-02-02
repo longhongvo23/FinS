@@ -5,6 +5,7 @@ import static com.stockapp.notificationservice.domain.NotificationTestSamples.*;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 
 class NotificationMapperTest {
 
@@ -12,7 +13,7 @@ class NotificationMapperTest {
 
     @BeforeEach
     void setUp() {
-        notificationMapper = new NotificationMapperImpl();
+        notificationMapper = Mappers.getMapper(NotificationMapper.class);
     }
 
     @Test

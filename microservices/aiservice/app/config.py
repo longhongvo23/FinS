@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     CONSUL_HOST: str = "consul"
     CONSUL_PORT: int = 8500
     SERVICE_DISCOVERY_ENABLED: bool = False
+    
+    # Service URLs
+    NOTIFICATION_SERVICE_URL: str = "http://notificationservice:8085"
+    USER_SERVICE_URL: str = "http://userservice:8081"
 
     class Config:
         env_file = ".env"

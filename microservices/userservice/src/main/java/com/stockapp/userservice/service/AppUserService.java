@@ -212,4 +212,48 @@ public class AppUserService {
         LOG.debug("Request to get AppUser by activation key");
         return appUserRepository.findByActivationKey(key).map(appUserMapper::toDto);
     }
+
+    /**
+     * Activate user account by activation key
+     * This method directly updates the Entity to avoid DTO mapping issues
+     *
+     * @param key the activation key from email
+     * @return the activated user entity
+     */
+    public Mono<AppUserDTO> activateByKey(String key) {
+        LOG.debug("Request to activate AppUser by key: {}", key);
+        return appUserRepository.findByActivationKey(key)
+                .flatMap(user -> {
+                    LOG.info("Activating user: {} with id: {}", user.getLogin(), user.getId());
+                    user.setActivated(true);
+                    user.setEmailVerified(true);
+                    user.setAccountStatus(com.stockapp.userservice.domain.enumeration.AccountStatus.ACTIVE);
+                    user.setActivationKey(null);
+                    user.setEmailVerificationToken(null);
+                    user.setEmailVerificationTokenExpiry(null);
+                    return appUserRepository.save(user);
+                })
+                .map(appUserMapper::toDto);
+    }
+
+    /**
+     * Request password reset for user by email
+     * This method directly updates the Entity to avoid DTO mapping issues
+     *
+     * @param email      the user's email
+     * @param resetToken the generated reset token
+     * @param expiry     the token expiry time
+     * @return the updated user entity with reset token
+     */
+    public Mono<AppUserDTO> requestPasswordReset(String email, String resetToken, java.time.Instant expiry) {
+        LOG.debug("Request to set password reset token for email: {}", email);
+        return appUserRepository.findByEmail(email)
+                .flatMap(user -> {
+                    LOG.info("Setting password reset token for user: {} with id: {}", user.getLogin(), user.getId());
+                    user.setPasswordResetToken(resetToken);
+                    user.setPasswordResetTokenExpiry(expiry);
+                    return appUserRepository.save(user);
+                })
+                .map(appUserMapper::toDto);
+    }
 }

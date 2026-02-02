@@ -62,6 +62,9 @@ public class AppUserDTO implements Serializable {
 
     private Instant emailVerificationTokenExpiry;
 
+    @Size(max = 10485760) // 10MB limit for base64
+    private String avatarUrl;
+
     @Size(max = 100)
     private String activationKey;
 
@@ -272,6 +275,25 @@ public class AppUserDTO implements Serializable {
 
     public void setAuthorities(Set<AuthorityDTO> authorities) {
         this.authorities = authorities;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+
+    @Size(max = 100)
+    private String fullName;
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 
     @Override

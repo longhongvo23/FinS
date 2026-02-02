@@ -292,6 +292,115 @@ class ProphetPredictionService:
 
         return counts
 
+    async def get_forecast_chart_data(
+        self,
+        symbol: str,
+        forecast_days: Optional[int] = None,
+        history_days: int = 90
+    ) -> Optional[Dict]:
+        """
+        Get forecast data for chart visualization
+        
+        Args:
+            symbol: Stock symbol
+            forecast_days: Number of days to forecast
+            history_days: Number of historical days to include
+            
+        Returns:
+            Dictionary with historical and forecast data for charting
+        """
+        try:
+            forecast_days = forecast_days or self.forecast_days
+            
+            # Fetch historical data
+            historical_data = await mongodb_service.get_historical_prices(
+                symbol=symbol,
+                days=365  # Use 1 year for training
+            )
+
+            if len(historical_data) < 30:
+                logger.info(f"⏭️  Skipping {symbol}: Insufficient data ({len(historical_data)} days)")
+                return None
+
+            # Prepare data for Prophet
+            df = self._prepare_data(historical_data)
+            
+            if df is None or df.empty:
+                logger.error(f"Failed to prepare data for {symbol}")
+                return None
+
+            # Get current price
+            current_price = df['y'].iloc[-1]
+
+            # Train Prophet model
+            model = Prophet(
+                changepoint_prior_scale=self.changepoint_prior_scale,
+                seasonality_mode=self.seasonality_mode,
+                interval_width=self.interval_width,
+                daily_seasonality=True,
+                weekly_seasonality=True,
+                yearly_seasonality=True
+            )
+            model.fit(df)
+
+            # Create future dataframe (including historical for fitted values)
+            future = model.make_future_dataframe(periods=forecast_days)
+            forecast = model.predict(future)
+
+            # Build chart data
+            chart_data = []
+            
+            # Get last N days of historical data
+            historical_df = df.tail(history_days)
+            
+            # Merge historical actual with forecast fitted values
+            for _, row in historical_df.iterrows():
+                date_str = row['ds'].strftime('%Y-%m-%d')
+                forecast_row = forecast[forecast['ds'] == row['ds']]
+                
+                data_point = {
+                    'date': date_str,
+                    'actual': float(row['y']),
+                    'predicted': float(forecast_row['yhat'].iloc[0]) if not forecast_row.empty else None,
+                    'lower': float(forecast_row['yhat_lower'].iloc[0]) if not forecast_row.empty else None,
+                    'upper': float(forecast_row['yhat_upper'].iloc[0]) if not forecast_row.empty else None,
+                }
+                chart_data.append(data_point)
+
+            # Add future forecast data (no actual values)
+            future_forecast = forecast[forecast['ds'] > df['ds'].max()]
+            for _, row in future_forecast.iterrows():
+                data_point = {
+                    'date': row['ds'].strftime('%Y-%m-%d'),
+                    'actual': None,
+                    'predicted': float(row['yhat']),
+                    'lower': float(row['yhat_lower']),
+                    'upper': float(row['yhat_upper']),
+                }
+                chart_data.append(data_point)
+
+            # Calculate summary
+            predicted_price = future_forecast['yhat'].iloc[-1]
+            change_percent = ((predicted_price - current_price) / current_price) * 100
+
+            result = {
+                'symbol': symbol,
+                'forecast_days': forecast_days,
+                'current_price': float(current_price),
+                'predicted_price': float(predicted_price),
+                'change_percent': float(change_percent),
+                'recommendation': self._get_recommendation_label(change_percent),
+                'data': chart_data,
+                'created_at': datetime.utcnow()
+            }
+
+            logger.info(f"Generated forecast chart data for {symbol}: {len(chart_data)} data points")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error generating forecast chart data for {symbol}: {e}")
+            return None
+
 
 # Global instance
 prediction_service = ProphetPredictionService()

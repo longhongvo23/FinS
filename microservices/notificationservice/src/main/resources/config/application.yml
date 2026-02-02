@@ -115,7 +115,7 @@ spring:
         watch:
           enabled: false
     function:
-      definition: kafkaConsumer;kafkaProducer
+      definition: kafkaConsumer;kafkaProducer;newsUpdateConsumer;aiPredictionConsumer;priceUpdateConsumer
     stream:
       kafka:
         binder:
@@ -132,6 +132,19 @@ spring:
           group: notificationservice
         kafkaProducer-out-0:
           content-type: text/plain
+          group: notificationservice
+        # Notification consumers for multiple topics
+        newsUpdateConsumer-in-0:
+          destination: stock.news.updates
+          content-type: application/json
+          group: notificationservice
+        aiPredictionConsumer-in-0:
+          destination: ai.prediction.completed
+          content-type: application/json
+          group: notificationservice
+        priceUpdateConsumer-in-0:
+          destination: stock.price.updates
+          content-type: application/json
           group: notificationservice
   docker:
     compose:

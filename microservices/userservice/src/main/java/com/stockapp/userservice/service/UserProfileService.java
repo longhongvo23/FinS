@@ -132,4 +132,15 @@ public class UserProfileService {
         LOG.debug("Request to get UserProfile by userId : {}", userId);
         return userProfileRepository.findByUserId(userId).map(userProfileMapper::toDto);
     }
+
+    /**
+     * Get userProfile by user login (username).
+     *
+     * @param login the user login/username.
+     * @return the entity.
+     */
+    public Mono<UserProfileDTO> findByUserLogin(String login) {
+        LOG.debug("Request to get UserProfile by login : {}", login);
+        return userProfileRepository.findByUserLogin(login).map(userProfileMapper::toDto);
+    }
 }

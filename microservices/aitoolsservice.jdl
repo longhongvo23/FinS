@@ -1,0 +1,132 @@
+/*
+ * ===================================================================
+ * AITOOLSSERVICE - AI-powered Financial Dashboard Service
+ * ===================================================================
+ */
+
+/*
+ * ===================================================================
+ * 1. APPLICATION
+ * ===================================================================
+ */
+
+application {
+  config {
+    baseName aitoolsservice
+    applicationType microservice
+    packageName com.stockapp.aitoolsservice
+    serverPort 8087
+    databaseType mongodb
+    buildTool maven
+    reactive true
+    serviceDiscoveryType consul
+    authenticationType jwt
+    messageBroker kafka
+    skipClient true
+  }
+  entities DailyMarketInsight, IndustryAnalysis, StockResearchReport, ChatHistory
+}
+
+/*
+ * ===================================================================
+ * 2. ENUMS
+ * ===================================================================
+ */
+
+enum Sentiment {
+  POSITIVE, NEUTRAL, NEGATIVE
+}
+
+enum StockRecommendation {
+  BUY, HOLD, SELL
+}
+
+/*
+ * ===================================================================
+ * 3. ENTITIES
+ * ===================================================================
+ */
+
+/**
+ * Daily Market Insight - Stores AI-generated daily market summary
+ * Matches UI Image 1 - Dashboard Overview
+ */
+entity DailyMarketInsight {
+  reportDate LocalDate required
+  marketTrend String          // e.g., "Bullish", "Bearish", "Neutral"
+  summaryTitle String         // Main headline
+  summaryContent TextBlob     // Detailed analysis
+  highlightsJson TextBlob     // JSON array: [{"title": "...", "description": "..."}]
+  createdAt Instant required
+}
+
+/**
+ * Industry Analysis - Sector-specific insights
+ * Matches UI Image 1 - Industry Cards
+ */
+entity IndustryAnalysis {
+  reportDate LocalDate required
+  industryName String required    // e.g., "AI & Semiconductors", "Technology"
+  sentiment Sentiment required    // POSITIVE, NEUTRAL, NEGATIVE
+  summary TextBlob               // Industry summary
+  relatedStocks String           // Comma-separated: "NVDA,AMD,INTC"
+  createdAt Instant required
+}
+
+/**
+ * Stock Research Report - AI-generated stock analysis with scores
+ * Matches UI Image 2 - Research Detail Card
+ */
+entity StockResearchReport {
+  symbol String required pattern(/^[A-Z0-9\.]+$/)
+  createdDate Instant required
+  recommendation StockRecommendation required  // BUY, HOLD, SELL
+  targetPrice BigDecimal
+  currentPrice BigDecimal
+  upsidePercentage Float
+  
+  // Scores for Progress Bars (0-100)
+  financialScore Integer min(0) max(100)
+  technicalScore Integer min(0) max(100)
+  sentimentScore Integer min(0) max(100)
+  overallScore Integer min(0) max(100)
+  
+  // Analysis Content
+  analysisSummary TextBlob
+  keyFactors TextBlob           // JSON: [{"factor": "...", "impact": "positive/negative"}]
+  riskFactors TextBlob          // JSON array of risks
+}
+
+/**
+ * Chat History - Stores AI chat conversations
+ * For RAG-based financial Q&A
+ */
+entity ChatHistory {
+  userId String required
+  sessionId String
+  userQuestion TextBlob required
+  botResponse TextBlob
+  context TextBlob              // Embedded context used for RAG
+  timestamp Instant required
+  tokensUsed Integer
+}
+
+/*
+ * ===================================================================
+ * 4. RELATIONSHIPS
+ * ===================================================================
+ */
+
+relationship OneToMany {
+  DailyMarketInsight{industries} to IndustryAnalysis{dailyInsight(reportDate)}
+}
+
+/*
+ * ===================================================================
+ * 5. SETTINGS
+ * ===================================================================
+ */
+
+dto DailyMarketInsight, IndustryAnalysis, StockResearchReport, ChatHistory with mapstruct
+service DailyMarketInsight, IndustryAnalysis, StockResearchReport, ChatHistory with serviceClass
+paginate StockResearchReport, ChatHistory with pagination

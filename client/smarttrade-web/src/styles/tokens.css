@@ -1,0 +1,222 @@
+/* ═══════════════════════════════════════════════════════════════
+   SMARTTRADE AI - UNIFIED DESIGN SYSTEM
+   Bloomberg-inspired, Premium Financial Aesthetic
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ─────────────────────────────────────────────────────────────
+     COLOR PALETTE - Light Theme (High Contrast)
+     WCAG 2.1 AA compliant - Enhanced visual hierarchy
+     ───────────────────────────────────────────────────────────── */
+
+  /* Backgrounds - Blue-gray tint for better card separation */
+  --color-bg-primary: #F5F7FA;
+  --color-bg-secondary: #EBEEF3;
+  --color-bg-tertiary: #E2E6ED;
+
+  /* Surfaces (cards, modals) - Pure white for contrast */
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #FFFFFF;
+  --color-surface-overlay: rgba(255, 255, 255, 0.97);
+
+  /* Borders - More visible */
+  --color-border: #CDD4E0;
+  --color-border-subtle: #DDE2EA;
+  --color-border-strong: #B8C1D1;
+
+  /* Text - Higher contrast for readability */
+  --color-text-primary: #1A1D23;
+  --color-text-secondary: #3D4452;
+  --color-text-tertiary: #5C6470;
+  --color-text-muted: #7A8494;
+
+  /* Brand - Signature Orange (used sparingly) */
+  --color-brand: #FF6B35;
+  --color-brand-soft: rgba(255, 107, 53, 0.12);
+  --color-brand-hover: #E55A2B;
+
+  /* Semantic - Financial (slightly darker for better contrast) */
+  --color-positive: #0EA371;
+  --color-positive-soft: rgba(14, 163, 113, 0.12);
+  --color-negative: #E84545;
+  --color-negative-soft: rgba(232, 69, 69, 0.12);
+  --color-neutral: #6B7280;
+
+  /* Data visualization */
+  --color-chart-1: #2B8DD6;
+  --color-chart-2: #0EA371;
+  --color-chart-3: #FF6B35;
+  --color-chart-4: #6D4AE8;
+  --color-chart-5: #E09000;
+
+  /* Shadows - Light theme (stronger for depth) */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.12);
+
+  /* ─────────────────────────────────────────────────────────────
+     TYPOGRAPHY
+     ───────────────────────────────────────────────────────────── */
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+  /* Scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+
+  /* Line heights */
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* Letter spacing */
+  --tracking-tight: -0.02em;
+  --tracking-normal: -0.01em;
+  --tracking-wide: 0.05em;
+  --tracking-wider: 0.1em;
+
+  /* Font weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* ─────────────────────────────────────────────────────────────
+     SPACING
+     ───────────────────────────────────────────────────────────── */
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  /* ─────────────────────────────────────────────────────────────
+     BORDERS & RADIUS
+     ───────────────────────────────────────────────────────────── */
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  --border-width: 1px;
+
+  /* ─────────────────────────────────────────────────────────────
+     TRANSITIONS
+     ───────────────────────────────────────────────────────────── */
+
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+  --transition-slower: 500ms ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK THEME
+   ═══════════════════════════════════════════════════════════════ */
+
+.dark {
+  /* Backgrounds */
+  --color-bg-primary: #0A0A0A;
+  --color-bg-secondary: #111111;
+  --color-bg-tertiary: #161616;
+
+  /* Surfaces */
+  --color-surface: #111111;
+  --color-surface-elevated: #161616;
+  --color-surface-overlay: rgba(17, 17, 17, 0.95);
+
+  /* Borders */
+  --color-border: #1E1E1E;
+  --color-border-subtle: #161616;
+  --color-border-strong: #2A2A2A;
+
+  /* Text */
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A1A1AA;
+  --color-text-tertiary: #71717A;
+  --color-text-muted: #52525B;
+
+  /* Shadows - Dark theme (minimal) */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITY CLASSES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Text utilities */
+.text-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+}
+
+/* Price display */
+.price-positive {
+  color: var(--color-positive);
+}
+
+.price-negative {
+  color: var(--color-negative);
+}
+
+.price-neutral {
+  color: var(--color-text-secondary);
+}
+
+/* Card styles */
+.card-surface {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.card-elevated {
+  background: var(--color-surface-elevated);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+/* Section divider */
+.divider {
+  height: 1px;
+  background: var(--color-border);
+}
+
+.divider-subtle {
+  height: 1px;
+  background: var(--color-border-subtle);
+}

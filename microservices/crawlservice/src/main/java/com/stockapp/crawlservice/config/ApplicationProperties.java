@@ -17,6 +17,9 @@ public class ApplicationProperties {
     private StockService stockService = new StockService();
     private NewsService newsService = new NewsService();
     private Crawl crawl = new Crawl();
+    private UserService userService = new UserService();
+    private NotificationService notificationService = new NotificationService();
+    private Security security = new Security();
 
     public Api getApi() {
         return api;
@@ -56,6 +59,34 @@ public class ApplicationProperties {
 
     public void setCrawl(Crawl crawl) {
         this.crawl = crawl;
+    }
+
+    public UserService getUserService() {
+        return userService;
+    }
+
+    public void setUserService(UserService userService) {
+        this.userService = userService;
+    }
+
+    public NotificationService getNotificationService() {
+        return notificationService;
+    }
+
+    public void setNotificationService(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
+
+    public Security getSecurity() {
+        return security;
+    }
+
+    public void setSecurity(Security security) {
+        this.security = security;
+    }
+
+    {
+        this.notificationService = notificationService;
     }
 
     public static class Api {
@@ -147,6 +178,7 @@ public class ApplicationProperties {
 
     public static class Crawl {
         private Historical historical = new Historical();
+        private StartupBackfill startupBackfill = new StartupBackfill();
         private Schedule schedule = new Schedule();
 
         public Historical getHistorical() {
@@ -155,6 +187,14 @@ public class ApplicationProperties {
 
         public void setHistorical(Historical historical) {
             this.historical = historical;
+        }
+
+        public StartupBackfill getStartupBackfill() {
+            return startupBackfill;
+        }
+
+        public void setStartupBackfill(StartupBackfill startupBackfill) {
+            this.startupBackfill = startupBackfill;
         }
 
         public Schedule getSchedule() {
@@ -166,9 +206,30 @@ public class ApplicationProperties {
         }
     }
 
+    public static class StartupBackfill {
+        private boolean enabled = true;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+    }
+
     public static class Historical {
+        private boolean enabled = true;
         private String startDate;
         private String interval;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
 
         public String getStartDate() {
             return startDate;
@@ -223,6 +284,63 @@ public class ApplicationProperties {
 
         public void setDailyNews(String dailyNews) {
             this.dailyNews = dailyNews;
+        }
+    }
+
+    public static class UserService {
+        private String url;
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+    }
+
+    public static class NotificationService {
+        private String url;
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+    }
+
+    public static class Security {
+        private Encryption encryption = new Encryption();
+
+        public Encryption getEncryption() {
+            return encryption;
+        }
+
+        public void setEncryption(Encryption encryption) {
+            this.encryption = encryption;
+        }
+
+        public static class Encryption {
+            private String masterKey;
+            private String salt = "StockAppEncryptionSalt2024";
+
+            public String getMasterKey() {
+                return masterKey;
+            }
+
+            public void setMasterKey(String masterKey) {
+                this.masterKey = masterKey;
+            }
+
+            public String getSalt() {
+                return salt;
+            }
+
+            public void setSalt(String salt) {
+                this.salt = salt;
+            }
         }
     }
 }

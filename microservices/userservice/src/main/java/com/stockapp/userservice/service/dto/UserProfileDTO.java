@@ -24,7 +24,7 @@ public class UserProfileDTO implements Serializable {
     @Size(max = 200)
     private String fullName;
 
-    @Size(max = 2048)
+    @Size(max = 5242880) // 5MB
     private String avatarUrl;
 
     private LocalDate dateOfBirth;
@@ -38,6 +38,16 @@ public class UserProfileDTO implements Serializable {
     private Boolean showEmail;
 
     private Boolean showPhone;
+
+    // Investment profile fields
+    @Size(max = 20)
+    private String riskTolerance;
+
+    @Size(max = 20)
+    private String investmentGoal;
+
+    @Size(max = 20)
+    private String investmentExperience;
 
     private AppUserDTO user;
 
@@ -129,6 +139,32 @@ public class UserProfileDTO implements Serializable {
         this.showPhone = showPhone;
     }
 
+    // Investment profile getters and setters
+
+    public String getRiskTolerance() {
+        return riskTolerance;
+    }
+
+    public void setRiskTolerance(String riskTolerance) {
+        this.riskTolerance = riskTolerance;
+    }
+
+    public String getInvestmentGoal() {
+        return investmentGoal;
+    }
+
+    public void setInvestmentGoal(String investmentGoal) {
+        this.investmentGoal = investmentGoal;
+    }
+
+    public String getInvestmentExperience() {
+        return investmentExperience;
+    }
+
+    public void setInvestmentExperience(String investmentExperience) {
+        this.investmentExperience = investmentExperience;
+    }
+
     public AppUserDTO getUser() {
         return user;
     }
@@ -162,18 +198,18 @@ public class UserProfileDTO implements Serializable {
     @Override
     public String toString() {
         return "UserProfileDTO{" +
-            "id='" + getId() + "'" +
-            ", phoneNumber='" + getPhoneNumber() + "'" +
-            ", phoneVerified='" + getPhoneVerified() + "'" +
-            ", country='" + getCountry() + "'" +
-            ", fullName='" + getFullName() + "'" +
-            ", avatarUrl='" + getAvatarUrl() + "'" +
-            ", dateOfBirth='" + getDateOfBirth() + "'" +
-            ", bio='" + getBio() + "'" +
-            ", profileVisibility='" + getProfileVisibility() + "'" +
-            ", showEmail='" + getShowEmail() + "'" +
-            ", showPhone='" + getShowPhone() + "'" +
-            ", user=" + getUser() +
-            "}";
+                "id='" + getId() + "'" +
+                ", phoneNumber='" + getPhoneNumber() + "'" +
+                ", phoneVerified='" + getPhoneVerified() + "'" +
+                ", country='" + getCountry() + "'" +
+                ", fullName='" + getFullName() + "'" +
+                ", avatarUrl='" + getAvatarUrl() + "'" +
+                ", dateOfBirth='" + getDateOfBirth() + "'" +
+                ", bio='" + getBio() + "'" +
+                ", profileVisibility='" + getProfileVisibility() + "'" +
+                ", showEmail='" + getShowEmail() + "'" +
+                ", showPhone='" + getShowPhone() + "'" +
+                ", user=" + getUser() +
+                "}";
     }
 }

@@ -1,24 +1,20 @@
 package com.stockapp.notificationservice.web.rest;
 
+import com.stockapp.notificationservice.domain.enumeration.NotificationCategory;
 import com.stockapp.notificationservice.domain.enumeration.NotificationStatus;
-import com.stockapp.notificationservice.domain.enumeration.NotificationType;
 import com.stockapp.notificationservice.service.NotificationService;
 import com.stockapp.notificationservice.service.dto.NotificationDTO;
-import com.stockapp.notificationservice.web.rest.vm.NotificationVM;
-import com.stockapp.notificationservice.web.rest.vm.PriceAlertVM;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -35,10 +31,12 @@ import java.util.Map;
 /**
  * Public REST API for Notification management
  * Requires authentication
+ * 
+ * Simplified notification system with only AI and News notifications
  */
 @RestController
 @RequestMapping("/api/public/notifications")
-@Tag(name = "Notification API", description = "Endpoints for managing user notifications and price alerts")
+@Tag(name = "Notification API", description = "Endpoints for managing user notifications")
 @SecurityRequirement(name = "bearer-jwt")
 public class PublicNotificationResource {
 
@@ -51,11 +49,127 @@ public class PublicNotificationResource {
     }
 
     /**
+     * Response DTO for notifications
+     */
+    public static class NotificationResponse {
+        private String id;
+        private String recipient;
+        private String type;
+        private String status;
+        private String subject;
+        private String content;
+        private String title;
+        private String category;
+        private String metadata;
+        private Instant createdAt;
+        private Instant sentAt;
+        private boolean read;
+
+        // Getters and setters
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public String getRecipient() {
+            return recipient;
+        }
+
+        public void setRecipient(String recipient) {
+            this.recipient = recipient;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getSubject() {
+            return subject;
+        }
+
+        public void setSubject(String subject) {
+            this.subject = subject;
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public void setContent(String content) {
+            this.content = content;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getCategory() {
+            return category;
+        }
+
+        public void setCategory(String category) {
+            this.category = category;
+        }
+
+        public String getMetadata() {
+            return metadata;
+        }
+
+        public void setMetadata(String metadata) {
+            this.metadata = metadata;
+        }
+
+        public Instant getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(Instant createdAt) {
+            this.createdAt = createdAt;
+        }
+
+        public Instant getSentAt() {
+            return sentAt;
+        }
+
+        public void setSentAt(Instant sentAt) {
+            this.sentAt = sentAt;
+        }
+
+        public boolean isRead() {
+            return read;
+        }
+
+        public void setRead(boolean read) {
+            this.read = read;
+        }
+    }
+
+    /**
      * GET /api/public/notifications : Get user's notifications
      *
-     * @param read filter by read status (optional)
-     * @param page page number (default: 0)
-     * @param size page size (default: 20)
+     * @param read     filter by read status (optional)
+     * @param category filter by category (AI_INSIGHT, NEWS) (optional)
+     * @param page     page number (default: 0)
+     * @param size     page size (default: 20)
      * @return paginated list of notifications
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
@@ -63,25 +177,40 @@ public class PublicNotificationResource {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Notifications retrieved successfully")
     })
-    public Flux<NotificationVM> getUserNotifications(
+    public Flux<NotificationResponse> getUserNotifications(
             @Parameter(description = "Filter by read status") @RequestParam(required = false) Boolean read,
+            @Parameter(description = "Filter by category") @RequestParam(required = false) String category,
             @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
 
-        LOG.debug("Public API request to get notifications - read: {}, page: {}, size: {}", read, page, size);
+        LOG.debug("Public API request to get notifications - read: {}, category: {}, page: {}, size: {}",
+                read, category, page, size);
 
         return getCurrentUserId()
                 .flatMapMany(userId -> {
                     Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-                    Flux<NotificationDTO> notifications = notificationService.findByRecipient(userId, pageable);
+
+                    // Parse category if provided
+                    NotificationCategory categoryEnum = null;
+                    if (category != null && !category.isEmpty()) {
+                        try {
+                            categoryEnum = NotificationCategory.valueOf(category);
+                        } catch (IllegalArgumentException e) {
+                            LOG.warn("Invalid category: {}", category);
+                        }
+                    }
+
+                    // Use the proper service method that queries by userId
+                    Flux<NotificationDTO> allNotifications = notificationService.getNotifications(userId, categoryEnum,
+                            pageable);
 
                     // Filter by read status if provided
                     if (read != null) {
-                        notifications = notifications
-                                .filter(n -> NotificationStatus.SENT.equals(n.getStatus()) == read);
+                        allNotifications = allNotifications
+                                .filter(n -> Boolean.valueOf(n.isRead()).equals(read));
                     }
 
-                    return notifications.map(this::toNotificationVM);
+                    return allNotifications.map(this::toNotificationResponse);
                 });
     }
 
@@ -100,9 +229,7 @@ public class PublicNotificationResource {
         LOG.debug("Public API request to get unread count");
 
         return getCurrentUserId()
-                .flatMap(userId -> notificationService.findByRecipient(userId, Pageable.unpaged())
-                        .filter(n -> NotificationStatus.PENDING.equals(n.getStatus()))
-                        .count())
+                .flatMap(userId -> notificationService.getUnreadCount(userId))
                 .map(ResponseEntity::ok);
     }
 
@@ -118,7 +245,7 @@ public class PublicNotificationResource {
             @ApiResponse(responseCode = "200", description = "Notification marked as read"),
             @ApiResponse(responseCode = "404", description = "Notification not found")
     })
-    public Mono<ResponseEntity<NotificationVM>> markAsRead(@PathVariable String id) {
+    public Mono<ResponseEntity<NotificationResponse>> markAsRead(@PathVariable String id) {
         LOG.debug("Public API request to mark notification as read: {}", id);
 
         return notificationService.findOne(id)
@@ -127,7 +254,7 @@ public class PublicNotificationResource {
                     notification.setSentAt(Instant.now());
                     return notificationService.update(notification);
                 })
-                .map(this::toNotificationVM)
+                .map(this::toNotificationResponse)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -146,14 +273,7 @@ public class PublicNotificationResource {
         LOG.debug("Public API request to mark all notifications as read");
 
         return getCurrentUserId()
-                .flatMapMany(userId -> notificationService.findByRecipient(userId, Pageable.unpaged()))
-                .filter(n -> NotificationStatus.PENDING.equals(n.getStatus()))
-                .flatMap(notification -> {
-                    notification.setStatus(NotificationStatus.SENT);
-                    notification.setSentAt(Instant.now());
-                    return notificationService.update(notification);
-                })
-                .count()
+                .flatMap(userId -> notificationService.markAllAsRead(userId))
                 .map(count -> {
                     Map<String, Long> result = new HashMap<>();
                     result.put("updated", count);
@@ -181,76 +301,27 @@ public class PublicNotificationResource {
     }
 
     /**
-     * POST /api/public/notifications/price-alerts : Create a price alert
+     * DELETE /api/public/notifications : Delete all user's notifications
      *
-     * @param alertVM the price alert data
-     * @return created notification
+     * @return number of notifications deleted
      */
-    @PostMapping("/price-alerts")
-    @Operation(summary = "Create price alert", description = "Create a price alert notification")
+    @DeleteMapping
+    @Operation(summary = "Delete all notifications", description = "Delete all user's notifications")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Price alert created"),
-            @ApiResponse(responseCode = "400", description = "Invalid alert data")
+            @ApiResponse(responseCode = "200", description = "All notifications deleted")
     })
-    public Mono<ResponseEntity<NotificationVM>> createPriceAlert(@Valid @RequestBody PriceAlertVM alertVM) {
-        LOG.debug("Public API request to create price alert: {}", alertVM);
+    public Mono<ResponseEntity<Map<String, Long>>> deleteAllNotifications() {
+        LOG.debug("Public API request to delete all notifications");
 
         return getCurrentUserId()
-                .flatMap(userId -> {
-                    NotificationDTO notification = new NotificationDTO();
-                    notification.setRecipient(userId);
-                    notification.setType(NotificationType.IN_APP);
-                    notification.setStatus(NotificationStatus.PENDING);
-                    notification.setSubject("Price Alert: " + alertVM.getSymbol());
-                    notification.setContent(String.format(
-                            "Alert when %s goes %s $%s",
-                            alertVM.getSymbol(),
-                            alertVM.getCondition(),
-                            alertVM.getTargetPrice()));
-                    notification.setCreatedAt(Instant.now());
-
-                    return notificationService.save(notification);
-                })
-                .map(this::toNotificationVM)
-                .map(vm -> ResponseEntity.status(HttpStatus.CREATED).body(vm));
-    }
-
-    /**
-     * GET /api/public/notifications/price-alerts : Get user's price alerts
-     *
-     * @return list of active price alerts
-     */
-    @GetMapping("/price-alerts")
-    @Operation(summary = "Get price alerts", description = "Get user's active price alerts")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Price alerts retrieved")
-    })
-    public Flux<NotificationVM> getPriceAlerts() {
-        LOG.debug("Public API request to get price alerts");
-
-        return getCurrentUserId()
-                .flatMapMany(userId -> notificationService.findByRecipient(userId, Pageable.unpaged())
-                        .filter(n -> n.getSubject() != null && n.getSubject().startsWith("Price Alert:"))
-                        .filter(n -> NotificationStatus.PENDING.equals(n.getStatus())))
-                .map(this::toNotificationVM);
-    }
-
-    /**
-     * DELETE /api/public/notifications/price-alerts/{id} : Delete a price alert
-     *
-     * @param id the alert notification ID
-     * @return status 204 (NO_CONTENT)
-     */
-    @DeleteMapping("/price-alerts/{id}")
-    @Operation(summary = "Delete price alert", description = "Delete a price alert")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Price alert deleted")
-    })
-    public Mono<ResponseEntity<Void>> deletePriceAlert(@PathVariable String id) {
-        LOG.debug("Public API request to delete price alert: {}", id);
-
-        return notificationService.delete(id)
-                .then(Mono.just(ResponseEntity.noContent().<Void>build()));
+                .flatMapMany(userId -> notificationService.getNotifications(userId, null, Pageable.unpaged()))
+                .flatMap(notification -> notificationService.delete(notification.getId()))
+                .count()
+                .map(count -> {
+                    Map<String, Long> result = new HashMap<>();
+                    result.put("deleted", count);
+                    return ResponseEntity.ok(result);
+                });
     }
 
     // Helper methods
@@ -261,17 +332,20 @@ public class PublicNotificationResource {
                 .map(Authentication::getName);
     }
 
-    private NotificationVM toNotificationVM(NotificationDTO dto) {
-        NotificationVM vm = new NotificationVM();
-        vm.setId(dto.getId());
-        vm.setRecipient(dto.getRecipient());
-        vm.setType(dto.getType());
-        vm.setStatus(dto.getStatus());
-        vm.setSubject(dto.getSubject());
-        vm.setContent(dto.getContent());
-        vm.setCreatedAt(dto.getCreatedAt());
-        vm.setSentAt(dto.getSentAt());
-        vm.setRead(NotificationStatus.SENT.equals(dto.getStatus()));
-        return vm;
+    private NotificationResponse toNotificationResponse(NotificationDTO dto) {
+        NotificationResponse response = new NotificationResponse();
+        response.setId(dto.getId());
+        response.setRecipient(dto.getRecipient());
+        response.setType(dto.getType() != null ? dto.getType().name() : null);
+        response.setStatus(dto.getStatus() != null ? dto.getStatus().name() : null);
+        response.setSubject(dto.getSubject());
+        response.setContent(dto.getContent());
+        response.setTitle(dto.getTitle());
+        response.setCategory(dto.getCategory() != null ? dto.getCategory().name() : null);
+        response.setMetadata(dto.getMetadata());
+        response.setCreatedAt(dto.getCreatedAt());
+        response.setSentAt(dto.getSentAt());
+        response.setRead(NotificationStatus.SENT.equals(dto.getStatus()));
+        return response;
     }
 }

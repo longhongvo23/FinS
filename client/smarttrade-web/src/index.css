@@ -1,0 +1,611 @@
+@import './styles/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Light Theme - High Contrast Bloomberg Style */
+  :root {
+    /* Page background with blue-gray tint for card separation */
+    --background: 218 25% 97%;
+    --background-secondary: 218 20% 93%;
+    --foreground: 220 20% 12%;
+    --foreground-secondary: 220 15% 28%;
+    --foreground-muted: 220 10% 42%;
+
+    /* Cards - Pure white for contrast against bg */
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
+
+    --primary: 220 20% 12%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Visible but subtle */
+    --secondary: 218 20% 92%;
+    --secondary-foreground: 220 20% 12%;
+
+    /* Muted - More visible */
+    --muted: 218 20% 92%;
+    --muted-foreground: 220 10% 42%;
+
+    --accent: 218 20% 92%;
+    --accent-foreground: 220 20% 12%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders - Much more visible */
+    --border: 218 18% 82%;
+    --input: 218 18% 82%;
+    --ring: 20 90% 48%;
+
+    --radius: 0.75rem;
+
+    /* Semantic colors - Financial (slightly darker) */
+    --success: 162 80% 35%;
+    --success-foreground: 0 0% 100%;
+    --danger: 0 75% 55%;
+    --danger-foreground: 0 0% 100%;
+    --warning: 38 92% 45%;
+    --warning-foreground: 0 0% 100%;
+    --info: 210 100% 45%;
+    --info-foreground: 0 0% 100%;
+
+    /* Brand - Orange */
+    --brand: 20 90% 48%;
+    --brand-secondary: 20 90% 55%;
+    --brand-muted: 20 90% 95%;
+
+    /* Surface layers - Clear hierarchy */
+    --surface-1: 0 0% 100%;
+    --surface-2: 218 25% 97%;
+    --surface-3: 218 20% 93%;
+
+    /* Chart specific - TradingView style (higher contrast) */
+    --chart-up: #0EA371;
+    --chart-down: #E84545;
+    --chart-grid: #CDD4E0;
+    --chart-text: #5C6470;
+    --chart-crosshair: #7A8494;
+  }
+
+  /* Dark Theme - Bloomberg Terminal */
+  .dark {
+    --background: 0 0% 4%;
+    --background-secondary: 0 0% 7%;
+    --foreground: 0 0% 98%;
+    --foreground-secondary: 240 5% 65%;
+    --foreground-muted: 240 4% 46%;
+
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 9%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 0 0% 9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 20 90% 48%;
+
+    /* Semantic colors - Financial */
+    --success: 162 72% 40%;
+    --success-foreground: 0 0% 100%;
+    --danger: 0 72% 51%;
+    --danger-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 210 100% 50%;
+    --info-foreground: 0 0% 100%;
+
+    /* Brand - Orange */
+    --brand: 20 90% 48%;
+    --brand-secondary: 20 90% 55%;
+    --brand-muted: 20 90% 15%;
+
+    /* Surface layers */
+    --surface-1: 0 0% 7%;
+    --surface-2: 0 0% 9%;
+    --surface-3: 0 0% 12%;
+
+    /* Chart specific */
+    --chart-up: #12B886;
+    --chart-down: #FA5252;
+    --chart-grid: #1E1E1E;
+    --chart-text: #71717A;
+    --chart-crosshair: #52525B;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
+  }
+}
+
+@layer components {
+  /* ═══════════════════════════════════════════════════════════════
+     LIGHT THEME - HIGH CONTRAST CARD STYLES
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* Cards with shadow for depth - Light theme only */
+  :root .card,
+  :root [data-slot="card"],
+  :root .card-surface {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
+
+  :root .card:hover,
+  :root [data-slot="card"]:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Sidebar enhancement - Light theme */
+  :root .sidebar,
+  :root aside[class*="fixed"] {
+    box-shadow: 1px 0 3px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Header enhancement - Light theme */
+  :root header[class*="sticky"],
+  :root header[class*="fixed"] {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Table rows - Light theme zebra striping */
+  :root .table tbody tr:nth-child(even),
+  :root table tbody tr:nth-child(even) {
+    background: hsl(218 20% 96%);
+  }
+
+  :root .table tbody tr:hover,
+  :root table tbody tr:hover {
+    background: hsl(218 20% 94%);
+  }
+
+  :root .table th,
+  :root table th {
+    background: hsl(218 20% 94%);
+    border-bottom: 2px solid var(--color-border);
+  }
+
+  /* Table rows - Dark theme - no zebra striping, transparent background */
+  .dark .table tbody tr:nth-child(even),
+  .dark table tbody tr:nth-child(even) {
+    background: transparent;
+  }
+
+  .dark .table tbody tr:hover,
+  .dark table tbody tr:hover {
+    background: transparent;
+  }
+
+  .dark .table th,
+  .dark table th {
+    background: transparent;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /* Input fields - Light theme */
+  :root input,
+  :root select,
+  :root textarea {
+    border-color: var(--color-border);
+  }
+
+  :root input:focus,
+  :root select:focus,
+  :root textarea:focus {
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.15);
+  }
+
+  /* Dropdown menus - Light theme */
+  :root [data-radix-popper-content-wrapper] > div {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Dialog/Modal - Light theme */
+  :root [role="dialog"] {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Bloomberg-style card */
+  .card-bloomberg {
+    @apply bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .card-bloomberg:hover {
+    border-color: var(--color-border-strong);
+  }
+
+  :root .card-bloomberg {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  :root .card-bloomberg:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Section label - uppercase muted */
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  /* Data display - monospace */
+  .data-value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Price positive/negative */
+  .price-up {
+    color: var(--color-positive);
+  }
+
+  .price-down {
+    color: var(--color-negative);
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply backdrop-blur-md;
+    background: var(--color-surface-overlay);
+  }
+
+  /* Dividers */
+  .divider-h {
+    height: 1px;
+    background: var(--color-border);
+  }
+
+  .divider-v {
+    width: 1px;
+    background: var(--color-border);
+  }
+}
+
+@layer utilities {
+  /* Font utilities */
+  .font-mono-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Tracking utilities */
+  .tracking-label {
+    letter-spacing: 0.1em;
+  }
+
+  /* Smooth transitions */
+  .transition-theme {
+    transition: background-color var(--transition-base),
+                border-color var(--transition-base),
+                color var(--transition-base);
+  }
+
+  /* Text gradient for brand */
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent;
+  }
+
+  /* Custom focus ring */
+  .focus-ring {
+    @apply outline-none ring-2 ring-orange-500/50 ring-offset-2;
+  }
+
+  /* Interactive card hover */
+  .interactive-card {
+    @apply transition-all duration-200;
+    @apply hover:-translate-y-0.5;
+    @apply hover:shadow-lg;
+  }
+
+  /* Subtle button hover */
+  .btn-subtle {
+    @apply transition-all duration-150;
+    @apply active:scale-[0.98];
+  }
+
+  /* Link hover underline */
+  .link-hover {
+    @apply relative;
+  }
+  .link-hover::after {
+    content: '';
+    @apply absolute bottom-0 left-0 h-px w-0 bg-current transition-all;
+  }
+  .link-hover:hover::after {
+    @apply w-full;
+  }
+}
+
+/* Animations */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  /* Safe area insets for notched devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .safe-area-x {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .safe-area-y {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-all {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Touch action utilities */
+  .touch-pan-x {
+    touch-action: pan-x;
+  }
+
+  .touch-pan-y {
+    touch-action: pan-y;
+  }
+
+  .touch-none {
+    touch-action: none;
+  }
+
+  /* Tap highlight removal for mobile */
+  .tap-transparent {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent text selection on mobile */
+  .select-none-mobile {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Pull-to-refresh prevention */
+  .no-overscroll {
+    overscroll-behavior: none;
+  }
+
+  /* iOS momentum scrolling */
+  .momentum-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Mobile-optimized text size */
+  .text-mobile-safe {
+    font-size: max(16px, 1rem);
+  }
+
+  /* Horizontal scroll container */
+  .scroll-x-container {
+    @apply flex overflow-x-auto scrollbar-hide gap-3;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 1rem;
+  }
+
+  .scroll-x-item {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+
+  /* Mobile card touch effect */
+  .touch-card {
+    @apply transition-transform duration-150;
+  }
+
+  .touch-card:active {
+    transform: scale(0.98);
+  }
+
+  /* Bottom sheet indicator */
+  .sheet-indicator {
+    @apply w-10 h-1 rounded-full bg-[var(--color-border)] mx-auto my-3;
+  }
+
+  /* Floating action button positioning */
+  .fab-position {
+    @apply fixed bottom-20 right-4 lg:bottom-6 lg:right-6;
+  }
+
+  /* Mobile grid utilities */
+  .mobile-grid-2 {
+    @apply grid grid-cols-2 gap-3;
+  }
+
+  .mobile-grid-3 {
+    @apply grid grid-cols-3 gap-2;
+  }
+
+  /* Mobile header sticky with blur */
+  .mobile-header-sticky {
+    @apply sticky top-0 z-30 bg-[var(--color-surface)]/95 backdrop-blur-sm;
+  }
+
+  /* Mobile bottom padding for fixed nav */
+  .mobile-bottom-pad {
+    @apply pb-20 lg:pb-6;
+  }
+
+  /* Responsive text truncation */
+  .truncate-mobile {
+    @apply truncate max-w-[120px] sm:max-w-none;
+  }
+
+  /* Mobile-friendly input sizing */
+  .input-mobile {
+    @apply h-12 text-base;
+  }
+
+  /* Mobile button sizing */
+  .btn-mobile {
+    @apply h-12 text-base font-medium;
+  }
+
+  /* Swipe hint animation */
+  .swipe-hint {
+    animation: swipeHint 2s ease-in-out infinite;
+  }
+}
+
+/* Swipe hint keyframes */
+@keyframes swipeHint {
+  0%, 100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(-10px);
+    opacity: 0.5;
+  }
+}
+
+/* Mobile-specific media queries */
+@media (max-width: 767px) {
+  /* Increase touch targets on mobile */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Better mobile table scrolling */
+  .table-mobile {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Tablet-specific styles */
+  .tablet-grid-2 {
+    @apply grid-cols-2;
+  }
+
+  .tablet-grid-3 {
+    @apply grid-cols-3;
+  }
+}
+
+/* Landscape mobile */
+@media (max-width: 767px) and (orientation: landscape) {
+  .landscape-compact {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .landscape-hidden {
+    display: none;
+  }
+}

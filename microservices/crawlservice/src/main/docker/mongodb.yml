@@ -10,7 +10,7 @@ services:
     # volumes:
     #   - ~/volumes/jhipster/crawlservice/mongodb/:/data/db/
     healthcheck:
-      test: ['CMD', 'echo', '''db.runCommand("ping").ok''', '|', 'mongo', 'localhost:27017/test', '--quiet']
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
       interval: 5s
       timeout: 5s
       retries: 10

@@ -15,4 +15,7 @@ public interface CrawlJobStateRepository extends ReactiveMongoRepository<CrawlJo
     Flux<CrawlJobState> findAllBy(Pageable pageable);
 
     reactor.core.publisher.Mono<CrawlJobState> findBySymbol(String symbol);
+
+    // Use this when duplicates may exist - returns first match
+    reactor.core.publisher.Mono<CrawlJobState> findFirstBySymbol(String symbol);
 }

@@ -15,4 +15,7 @@ public interface CompanyRepository extends ReactiveMongoRepository<Company, Stri
     Flux<Company> findAllBy(Pageable pageable);
 
     reactor.core.publisher.Mono<Company> findBySymbol(String symbol);
+
+    // Use this when duplicates may exist - returns first match
+    reactor.core.publisher.Mono<Company> findFirstBySymbol(String symbol);
 }

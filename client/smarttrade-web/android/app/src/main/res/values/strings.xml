@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SmartTrade</string>
+    <string name="title_activity_main">SmartTrade</string>
+    <string name="package_name">com.smarttrade.app</string>
+    <string name="custom_url_scheme">com.smarttrade.app</string>
+</resources>

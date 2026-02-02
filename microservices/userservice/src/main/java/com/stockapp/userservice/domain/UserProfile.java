@@ -1,5 +1,6 @@
 package com.stockapp.userservice.domain;
 
+import com.stockapp.userservice.security.encryption.Encrypted;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ public class UserProfile implements Serializable {
     private String id;
 
     @Pattern(regexp = "^[0-9\\-\\+]{9,15}$")
+    @Encrypted(reason = "PII - Personal phone number")
     @Field("phone_number")
     private String phoneNumber;
 
@@ -31,10 +33,11 @@ public class UserProfile implements Serializable {
     private String country;
 
     @Size(max = 200)
+    @Encrypted(reason = "PII - Personal name")
     @Field("full_name")
     private String fullName;
 
-    @Size(max = 2048)
+    @Size(max = 5242880) // 5MB
     @Field("avatar_url")
     private String avatarUrl;
 
@@ -42,6 +45,7 @@ public class UserProfile implements Serializable {
     private LocalDate dateOfBirth;
 
     @Size(max = 500)
+    @Encrypted(reason = "Personal information")
     @Field("bio")
     private String bio;
 
@@ -54,6 +58,19 @@ public class UserProfile implements Serializable {
 
     @Field("show_phone")
     private Boolean showPhone;
+
+    // Investment profile fields
+    @Size(max = 20)
+    @Field("risk_tolerance")
+    private String riskTolerance;
+
+    @Size(max = 20)
+    @Field("investment_goal")
+    private String investmentGoal;
+
+    @Size(max = 20)
+    @Field("investment_experience")
+    private String investmentExperience;
 
     @Field("user")
     private AppUser user;
@@ -203,6 +220,47 @@ public class UserProfile implements Serializable {
         this.showPhone = showPhone;
     }
 
+    // Investment profile getters and setters
+
+    public String getRiskTolerance() {
+        return this.riskTolerance;
+    }
+
+    public UserProfile riskTolerance(String riskTolerance) {
+        this.setRiskTolerance(riskTolerance);
+        return this;
+    }
+
+    public void setRiskTolerance(String riskTolerance) {
+        this.riskTolerance = riskTolerance;
+    }
+
+    public String getInvestmentGoal() {
+        return this.investmentGoal;
+    }
+
+    public UserProfile investmentGoal(String investmentGoal) {
+        this.setInvestmentGoal(investmentGoal);
+        return this;
+    }
+
+    public void setInvestmentGoal(String investmentGoal) {
+        this.investmentGoal = investmentGoal;
+    }
+
+    public String getInvestmentExperience() {
+        return this.investmentExperience;
+    }
+
+    public UserProfile investmentExperience(String investmentExperience) {
+        this.setInvestmentExperience(investmentExperience);
+        return this;
+    }
+
+    public void setInvestmentExperience(String investmentExperience) {
+        this.investmentExperience = investmentExperience;
+    }
+
     public AppUser getUser() {
         return this.user;
     }
@@ -216,7 +274,8 @@ public class UserProfile implements Serializable {
         return this;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and
+    // setters here
 
     @Override
     public boolean equals(Object o) {
@@ -231,7 +290,8 @@ public class UserProfile implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
+        // see
+        // https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
@@ -239,17 +299,17 @@ public class UserProfile implements Serializable {
     @Override
     public String toString() {
         return "UserProfile{" +
-            "id=" + getId() +
-            ", phoneNumber='" + getPhoneNumber() + "'" +
-            ", phoneVerified='" + getPhoneVerified() + "'" +
-            ", country='" + getCountry() + "'" +
-            ", fullName='" + getFullName() + "'" +
-            ", avatarUrl='" + getAvatarUrl() + "'" +
-            ", dateOfBirth='" + getDateOfBirth() + "'" +
-            ", bio='" + getBio() + "'" +
-            ", profileVisibility='" + getProfileVisibility() + "'" +
-            ", showEmail='" + getShowEmail() + "'" +
-            ", showPhone='" + getShowPhone() + "'" +
-            "}";
+                "id=" + getId() +
+                ", phoneNumber='" + getPhoneNumber() + "'" +
+                ", phoneVerified='" + getPhoneVerified() + "'" +
+                ", country='" + getCountry() + "'" +
+                ", fullName='" + getFullName() + "'" +
+                ", avatarUrl='" + getAvatarUrl() + "'" +
+                ", dateOfBirth='" + getDateOfBirth() + "'" +
+                ", bio='" + getBio() + "'" +
+                ", profileVisibility='" + getProfileVisibility() + "'" +
+                ", showEmail='" + getShowEmail() + "'" +
+                ", showPhone='" + getShowPhone() + "'" +
+                "}";
     }
 }

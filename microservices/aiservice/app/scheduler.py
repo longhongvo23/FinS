@@ -6,6 +6,7 @@ from app.config import settings
 from app.database import mongodb_service
 from app.prophet_service import prediction_service
 from app.kafka_service import kafka_service
+from app.notification_client import notification_client
 
 
 class SchedulerService:
@@ -75,6 +76,16 @@ class SchedulerService:
                         
                         # Publish to Kafka (gracefully handle if Kafka not available)
                         await kafka_service.publish_prediction(recommendation)
+                        
+                        # Send notification to users
+                        await notification_client.send_ai_recommendation(
+                            symbol=recommendation.get('symbol', symbol),
+                            recommendation=recommendation.get('recommendation', 'HOLD'),
+                            percent_change=recommendation.get('predicted_change_percent', 0),
+                            forecast_days=recommendation.get('forecast_days', 7),
+                            confidence=recommendation.get('confidence', 0.5),
+                            reason=recommendation.get('reason')
+                        )
                     else:
                         failed_count += 1
                         

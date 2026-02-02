@@ -1,5 +1,6 @@
 package com.stockapp.notificationservice.service.dto;
 
+import com.stockapp.notificationservice.domain.enumeration.NotificationCategory;
 import com.stockapp.notificationservice.domain.enumeration.NotificationStatus;
 import com.stockapp.notificationservice.domain.enumeration.NotificationType;
 import jakarta.validation.constraints.*;
@@ -8,7 +9,8 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * A DTO for the {@link com.stockapp.notificationservice.domain.Notification} entity.
+ * A DTO for the {@link com.stockapp.notificationservice.domain.Notification}
+ * entity.
  */
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class NotificationDTO implements Serializable {
@@ -16,24 +18,36 @@ public class NotificationDTO implements Serializable {
     private String id;
 
     @NotNull(message = "must not be null")
-    private String recipient;
+    private String userId;
 
     @NotNull(message = "must not be null")
-    private NotificationType type;
-
-    @NotNull(message = "must not be null")
-    private NotificationStatus status;
-
-    private String subject;
+    private String title;
 
     private String content;
+
+    private boolean isRead;
+
+    @NotNull(message = "must not be null")
+    private NotificationCategory category;
+
+    private NotificationType type;
+
+    private NotificationStatus status;
+
+    private String recipient;
+
+    private String subject;
 
     @NotNull(message = "must not be null")
     private Instant createdAt;
 
     private Instant sentAt;
 
+    private Instant readAt;
+
     private String errorMessage;
+
+    private String metadata;
 
     public String getId() {
         return id;
@@ -43,12 +57,44 @@ public class NotificationDTO implements Serializable {
         this.id = id;
     }
 
-    public String getRecipient() {
-        return recipient;
+    public String getUserId() {
+        return userId;
     }
 
-    public void setRecipient(String recipient) {
-        this.recipient = recipient;
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public boolean isRead() {
+        return isRead;
+    }
+
+    public void setRead(boolean isRead) {
+        this.isRead = isRead;
+    }
+
+    public NotificationCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(NotificationCategory category) {
+        this.category = category;
     }
 
     public NotificationType getType() {
@@ -67,20 +113,20 @@ public class NotificationDTO implements Serializable {
         this.status = status;
     }
 
+    public String getRecipient() {
+        return recipient;
+    }
+
+    public void setRecipient(String recipient) {
+        this.recipient = recipient;
+    }
+
     public String getSubject() {
         return subject;
     }
 
     public void setSubject(String subject) {
         this.subject = subject;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
     }
 
     public Instant getCreatedAt() {
@@ -99,12 +145,28 @@ public class NotificationDTO implements Serializable {
         this.sentAt = sentAt;
     }
 
+    public Instant getReadAt() {
+        return readAt;
+    }
+
+    public void setReadAt(Instant readAt) {
+        this.readAt = readAt;
+    }
+
     public String getErrorMessage() {
         return errorMessage;
     }
 
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
+    }
+
+    public String getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(String metadata) {
+        this.metadata = metadata;
     }
 
     @Override
@@ -128,19 +190,18 @@ public class NotificationDTO implements Serializable {
         return Objects.hash(this.id);
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
         return "NotificationDTO{" +
-            "id='" + getId() + "'" +
-            ", recipient='" + getRecipient() + "'" +
-            ", type='" + getType() + "'" +
-            ", status='" + getStatus() + "'" +
-            ", subject='" + getSubject() + "'" +
-            ", content='" + getContent() + "'" +
-            ", createdAt='" + getCreatedAt() + "'" +
-            ", sentAt='" + getSentAt() + "'" +
-            ", errorMessage='" + getErrorMessage() + "'" +
-            "}";
+                "id='" + getId() + "'" +
+                ", userId='" + getUserId() + "'" +
+                ", title='" + getTitle() + "'" +
+                ", content='" + getContent() + "'" +
+                ", isRead=" + isRead() +
+                ", category='" + getCategory() + "'" +
+                ", type='" + getType() + "'" +
+                ", status='" + getStatus() + "'" +
+                ", createdAt='" + getCreatedAt() + "'" +
+                "}";
     }
 }

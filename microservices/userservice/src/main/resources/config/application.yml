@@ -135,7 +135,7 @@ spring:
           group: userservice
   docker:
     compose:
-      enabled: true
+      enabled: false
       lifecycle-management: start-only
       file: src/main/docker/mongodb.yml
   profiles:
@@ -240,7 +240,19 @@ jhipster:
 # ===================================================================
 
 application:
-  base-url: http://localhost:2601
+  # Frontend base URLs for email verification links
+  # Web client: http://localhost:2302
+  # Mobile app: http://localhost:2601
+  base-url: http://localhost:2302
+  # Field-Level Encryption Settings
+  # IMPORTANT: Set ENCRYPTION_MASTER_KEY environment variable in production!
+  security:
+    encryption:
+      # Master key for field encryption - MUST be set in production via environment variable
+      # Generate a secure key: openssl rand -base64 32
+      master-key: ${ENCRYPTION_MASTER_KEY:}
+      # Salt for key derivation - should be unique per environment
+      salt: ${ENCRYPTION_SALT:StockAppUserServiceSalt2024}
 
 spring:
   mail:

@@ -1,5 +1,6 @@
 package com.stockapp.crawlservice.service;
 
+import com.stockapp.crawlservice.broker.PriceNotificationProducer;
 import com.stockapp.crawlservice.client.api.FinnhubClient;
 import com.stockapp.crawlservice.client.api.TwelveDataClient;
 import com.stockapp.crawlservice.client.config.ApiProperties;
@@ -18,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 public class HistoricalBackfillService {
@@ -30,23 +32,30 @@ public class HistoricalBackfillService {
     private final ApiProperties apiProperties;
     private final CrawlJobStateRepository crawlJobStateRepository;
     private final StockServiceClient stockServiceClient;
+    private final UserServiceClient userServiceClient;
+    private final PriceNotificationProducer priceNotificationProducer;
 
     public HistoricalBackfillService(
             TwelveDataClient twelveDataClient,
             FinnhubClient finnhubClient,
             ApiProperties apiProperties,
             CrawlJobStateRepository crawlJobStateRepository,
-            StockServiceClient stockServiceClient) {
+            StockServiceClient stockServiceClient,
+            UserServiceClient userServiceClient,
+            PriceNotificationProducer priceNotificationProducer) {
         this.twelveDataClient = twelveDataClient;
         this.finnhubClient = finnhubClient;
         this.apiProperties = apiProperties;
         this.crawlJobStateRepository = crawlJobStateRepository;
         this.stockServiceClient = stockServiceClient;
+        this.userServiceClient = userServiceClient;
+        this.priceNotificationProducer = priceNotificationProducer;
     }
 
     /**
      * Execute one-time historical backfill for all configured symbols
      * 2015-01-01 to now, ~17,500 records (7 symbols × 2,500 days)
+     * Uses concatMap for sequential execution to avoid race conditions
      */
     public Mono<Void> executeBackfill() {
         log.info("Starting historical backfill for all symbols");
@@ -56,7 +65,7 @@ public class HistoricalBackfillService {
         String interval = apiProperties.getCrawl().getHistorical().getInterval();
 
         return Flux.fromIterable(apiProperties.getStock().getSymbols())
-                .flatMap(symbol -> backfillSymbol(symbol, startDate, endDate, interval)
+                .concatMap(symbol -> backfillSymbol(symbol, startDate, endDate, interval)
                         .delayElement(Duration.ofSeconds(1)) // Rate limiting: 1 symbol/second
                 )
                 .then()
@@ -72,46 +81,48 @@ public class HistoricalBackfillService {
     private Mono<Void> backfillSymbol(String symbol, String startDate, String endDate, String interval) {
         log.info("Starting backfill for symbol: {}", symbol);
 
-        return updateJobState(symbol, JobStatus.RUNNING, null)
-                // Query latest date from stockservice
-                .then(stockServiceClient.getLatestHistoricalDate(symbol)
-                        .defaultIfEmpty(startDate) // If no data exists, use configured startDate
-                        .flatMap(latestDate -> {
-                            // Calculate next day after latest date
-                            String fromDate;
-                            if (latestDate == null || latestDate.isEmpty()) {
-                                fromDate = startDate; // No data, full backfill
-                                log.info("No existing data for {}, full backfill from {}", symbol, fromDate);
-                            } else {
-                                // Parse and add 1 day to latest date
-                                fromDate = LocalDate.parse(latestDate, DATE_FORMATTER)
-                                        .plusDays(1)
-                                        .format(DATE_FORMATTER);
-                                log.info("Incremental backfill for {} from {} (latest: {})", symbol, fromDate,
-                                        latestDate);
-                            }
+        // Query latest date from stockservice (no RUNNING state to avoid race
+        // condition)
+        return stockServiceClient.getLatestHistoricalDate(symbol)
+                .defaultIfEmpty(startDate) // If no data exists, use configured startDate
+                .flatMap(latestDate -> {
+                    // Calculate next day after latest date
+                    String fromDate;
+                    if (latestDate == null || latestDate.isEmpty()) {
+                        fromDate = startDate; // No data, full backfill
+                        log.info("No existing data for {}, full backfill from {}", symbol, fromDate);
+                    } else {
+                        // Parse and add 1 day to latest date
+                        // Handle both yyyy-MM-dd and ISO8601 (yyyy-MM-ddTHH:mm:ssZ) formats
+                        String dateOnly = latestDate.length() > 10 ? latestDate.substring(0, 10) : latestDate;
+                        fromDate = LocalDate.parse(dateOnly, DATE_FORMATTER)
+                                .plusDays(1)
+                                .format(DATE_FORMATTER);
+                        log.info("Incremental backfill for {} from {} (latest: {})", symbol, fromDate,
+                                dateOnly);
+                    }
 
-                            // Check if we need to fetch anything
-                            if (LocalDate.parse(fromDate, DATE_FORMATTER)
-                                    .isAfter(LocalDate.parse(endDate, DATE_FORMATTER))) {
-                                log.info("No new data to fetch for {} (already up to date)", symbol);
-                                return updateJobState(symbol, JobStatus.SUCCEEDED, null).then();
-                            }
+                    // Check if we need to fetch anything
+                    if (LocalDate.parse(fromDate, DATE_FORMATTER)
+                            .isAfter(LocalDate.parse(endDate, DATE_FORMATTER))) {
+                        log.info("No new data to fetch for {} (already up to date)", symbol);
+                        return updateJobState(symbol, JobStatus.SUCCEEDED, null).then();
+                    }
 
-                            // Fetch and save data
-                            return Mono.zip(
-                                    fetchCompanyProfile(symbol),
-                                    fetchHistoricalPrices(symbol, fromDate, endDate, interval))
-                                    .flatMap(tuple -> {
-                                        ProfileResponse profile = tuple.getT1();
-                                        TimeSeriesResponse timeSeries = tuple.getT2();
+                    // Fetch and save data
+                    return Mono.zip(
+                            fetchCompanyProfile(symbol),
+                            fetchHistoricalPrices(symbol, fromDate, endDate, interval))
+                            .flatMap(tuple -> {
+                                ProfileResponse profile = tuple.getT1();
+                                TimeSeriesResponse timeSeries = tuple.getT2();
 
-                                        return stockServiceClient.saveCompanyProfile(symbol, profile)
-                                                .then(saveHistoricalDataInChunks(symbol, timeSeries))
-                                                .then(updateJobState(symbol, JobStatus.SUCCEEDED, null));
-                                    });
-                        }))
-                .onErrorResume(error -> {
+                                return stockServiceClient.saveCompanyProfile(symbol, profile)
+                                        .then(saveHistoricalDataInChunks(symbol, timeSeries))
+                                        .then(sendPriceNotification(symbol, timeSeries))
+                                        .then(updateJobState(symbol, JobStatus.SUCCEEDED, null));
+                            });
+                }).onErrorResume(error -> {
                     log.error("Error backfilling symbol {}: {}", symbol, error.getMessage());
                     return updateJobState(symbol, JobStatus.FAILED, error.getMessage());
                 })
@@ -179,7 +190,7 @@ public class HistoricalBackfillService {
      * Update crawl job state in MongoDB
      */
     private Mono<CrawlJobState> updateJobState(String symbol, JobStatus status, String errorLog) {
-        return crawlJobStateRepository.findBySymbol(symbol)
+        return crawlJobStateRepository.findFirstBySymbol(symbol)
                 .switchIfEmpty(Mono.fromSupplier(() -> {
                     CrawlJobState newState = new CrawlJobState();
                     newState.setSymbol(symbol);
@@ -198,5 +209,64 @@ public class HistoricalBackfillService {
                     return crawlJobStateRepository.save(state);
                 })
                 .doOnSuccess(state -> log.debug("Updated job state for {}: {}", symbol, status));
+    }
+
+    /**
+     * Send price notification to users watching this symbol via Kafka
+     * Only sends notification for the latest (most recent) price data
+     */
+    private Mono<Void> sendPriceNotification(String symbol, TimeSeriesResponse timeSeries) {
+        if (timeSeries.getValues() == null || timeSeries.getValues().isEmpty()) {
+            log.debug("No price data to notify for {}", symbol);
+            return Mono.empty();
+        }
+
+        // Get the most recent (first) price from the time series
+        var latestPrice = timeSeries.getValues().get(0);
+
+        // Calculate percent change (close - open) / open * 100
+        double openPrice = parseDouble(latestPrice.getOpen());
+        double closePrice = parseDouble(latestPrice.getClose());
+        double percentChange = openPrice > 0 ? ((closePrice - openPrice) / openPrice) * 100 : 0;
+
+        log.info("Preparing price notification for {} - Date: {}, Change: {}%",
+                symbol, latestPrice.getDatetime(), String.format("%.2f", percentChange));
+
+        // Get users watching this symbol, then send Kafka message
+        return userServiceClient.getUserIdsBySymbol(symbol)
+                .filter(userIds -> !userIds.isEmpty())
+                .flatMap(userIds -> {
+                    log.info("Sending price notification for {} to {} users", symbol, userIds.size());
+
+                    PriceNotificationProducer.PriceUpdateMessage message = new PriceNotificationProducer.PriceUpdateMessage(
+                            symbol,
+                            userIds,
+                            percentChange,
+                            latestPrice.getOpen(),
+                            latestPrice.getClose(),
+                            latestPrice.getHigh(),
+                            latestPrice.getLow(),
+                            latestPrice.getVolume(),
+                            latestPrice.getDatetime());
+
+                    return priceNotificationProducer.sendPriceUpdate(message);
+                })
+                .then()
+                .doOnSuccess(v -> log.debug("Price notification sent for {}", symbol))
+                .onErrorResume(e -> {
+                    log.error("Failed to send price notification for {}: {}", symbol, e.getMessage());
+                    return Mono.empty(); // Don't fail the main backfill flow
+                });
+    }
+
+    /**
+     * Parse string to double safely
+     */
+    private double parseDouble(String value) {
+        try {
+            return value != null ? Double.parseDouble(value) : 0.0;
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 }

@@ -23,6 +23,8 @@ public class WatchlistItemDTO implements Serializable {
     @Size(max = 500)
     private String notes;
 
+    private String userId;
+
     private AppUserDTO user;
 
     public String getId() {
@@ -55,6 +57,14 @@ public class WatchlistItemDTO implements Serializable {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public AppUserDTO getUser() {
@@ -90,11 +100,11 @@ public class WatchlistItemDTO implements Serializable {
     @Override
     public String toString() {
         return "WatchlistItemDTO{" +
-            "id='" + getId() + "'" +
-            ", symbol='" + getSymbol() + "'" +
-            ", addedAt='" + getAddedAt() + "'" +
-            ", notes='" + getNotes() + "'" +
-            ", user=" + getUser() +
-            "}";
+                "id='" + getId() + "'" +
+                ", symbol='" + getSymbol() + "'" +
+                ", addedAt='" + getAddedAt() + "'" +
+                ", notes='" + getNotes() + "'" +
+                ", user=" + getUser() +
+                "}";
     }
 }

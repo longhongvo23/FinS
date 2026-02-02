@@ -33,7 +33,7 @@ public class MailService {
     @Value("${spring.mail.from:honglongvo23@gmail.com}")
     private String from;
 
-    @Value("${application.base-url:http://localhost:8080}")
+    @Value("${application.base-url:http://localhost:2302}")
     private String baseUrl;
 
     private final JavaMailSender javaMailSender;
@@ -45,67 +45,31 @@ public class MailService {
     }
 
     /**
-     * Send email from template asynchronously.
+     * Send email from template - blocking method.
      */
-    @Async
-    public void sendEmailFromTemplate(AppUserDTO user, String templateName, String titleKey, String subject) {
+    private void sendEmailFromTemplateBlocking(AppUserDTO user, String templateName, String subject) {
         if (user.getEmail() == null) {
             LOG.warn("Email doesn't exist for user '{}'", user.getLogin());
             return;
         }
-        Locale locale = Locale.forLanguageTag("en");
-        Context context = new Context(locale);
-        context.setVariable(USER, user);
-        context.setVariable(BASE_URL, baseUrl);
-        String content = templateEngine.process(templateName, context);
-        sendEmail(user.getEmail(), subject, content, false, true);
+        try {
+            Locale locale = Locale.forLanguageTag("en");
+            Context context = new Context(locale);
+            context.setVariable(USER, user);
+            context.setVariable(BASE_URL, baseUrl);
+            String content = templateEngine.process(templateName, context);
+            sendEmailBlocking(user.getEmail(), subject, content, false, true);
+        } catch (Exception e) {
+            LOG.error("Failed to process email template for user '{}'", user.getLogin(), e);
+        }
     }
 
     /**
-     * Send activation email.
+     * Send email - blocking method.
      */
-    public Mono<Void> sendActivationEmail(AppUserDTO user) {
-        return Mono.fromRunnable(() -> {
-            LOG.debug("Sending activation email to '{}'", user.getEmail());
-            sendEmailFromTemplate(user, "mail/activationEmail", "email.activation.title",
-                    "Account Activation - FinStock");
-        }).subscribeOn(Schedulers.boundedElastic()).then();
-    }
+    private void sendEmailBlocking(String to, String subject, String content, boolean isMultipart, boolean isHtml) {
+        LOG.info("Sending email to '{}' with subject '{}'", to, subject);
 
-    /**
-     * Send creation email.
-     */
-    public Mono<Void> sendCreationEmail(AppUserDTO user) {
-        return Mono.fromRunnable(() -> {
-            LOG.debug("Sending creation email to '{}'", user.getEmail());
-            sendEmailFromTemplate(user, "mail/creationEmail", "email.creation.title", "Account Created - FinStock");
-        }).subscribeOn(Schedulers.boundedElastic()).then();
-    }
-
-    /**
-     * Send password reset email.
-     */
-    public Mono<Void> sendPasswordResetMail(AppUserDTO user) {
-        return Mono.fromRunnable(() -> {
-            LOG.debug("Sending password reset email to '{}'", user.getEmail());
-            sendEmailFromTemplate(user, "mail/passwordResetEmail", "email.reset.title", "Password Reset - FinStock");
-        }).subscribeOn(Schedulers.boundedElastic()).then();
-    }
-
-    /**
-     * Send simple email.
-     */
-    @Async
-    public void sendEmail(String to, String subject, String content, boolean isMultipart, boolean isHtml) {
-        LOG.debug(
-                "Send email[multipart '{}' and html '{}'] to '{}' with subject '{}' and content={}",
-                isMultipart,
-                isHtml,
-                to,
-                subject,
-                content);
-
-        // Prepare message using a Spring helper
         MimeMessage mimeMessage = javaMailSender.createMimeMessage();
         try {
             MimeMessageHelper message = new MimeMessageHelper(mimeMessage, isMultipart, StandardCharsets.UTF_8.name());
@@ -114,9 +78,48 @@ public class MailService {
             message.setSubject(subject);
             message.setText(content, isHtml);
             javaMailSender.send(mimeMessage);
-            LOG.debug("Sent email to User '{}'", to);
+            LOG.info("Email sent successfully to '{}'", to);
         } catch (MessagingException e) {
-            LOG.warn("Email could not be sent to user '{}'", to, e);
+            LOG.error("Email could not be sent to user '{}'", to, e);
+            throw new RuntimeException("Failed to send email", e);
         }
+    }
+
+    /**
+     * Send activation email.
+     */
+    public Mono<Void> sendActivationEmail(AppUserDTO user) {
+        return Mono.fromRunnable(() -> {
+            LOG.info("Sending activation email to '{}'", user.getEmail());
+            sendEmailFromTemplateBlocking(user, "mail/activationEmail", "Kích hoạt tài khoản - SmartTrade AI");
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
+    /**
+     * Send creation email.
+     */
+    public Mono<Void> sendCreationEmail(AppUserDTO user) {
+        return Mono.fromRunnable(() -> {
+            LOG.info("Sending creation email to '{}'", user.getEmail());
+            sendEmailFromTemplateBlocking(user, "mail/creationEmail", "Tài khoản đã được tạo - SmartTrade AI");
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
+    /**
+     * Send password reset email.
+     */
+    public Mono<Void> sendPasswordResetMail(AppUserDTO user) {
+        return Mono.fromRunnable(() -> {
+            LOG.info("Sending password reset email to '{}', token: {}", user.getEmail(), user.getPasswordResetToken());
+            sendEmailFromTemplateBlocking(user, "mail/passwordResetEmail", "Đặt lại mật khẩu - SmartTrade AI");
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
+    /**
+     * Send simple email asynchronously (legacy method).
+     */
+    @Async
+    public void sendEmail(String to, String subject, String content, boolean isMultipart, boolean isHtml) {
+        sendEmailBlocking(to, subject, content, isMultipart, isHtml);
     }
 }

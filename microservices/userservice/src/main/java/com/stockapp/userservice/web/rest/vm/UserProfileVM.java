@@ -1,7 +1,6 @@
 package com.stockapp.userservice.web.rest.vm;
 
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -11,11 +10,9 @@ import java.time.LocalDate;
  */
 public class UserProfileVM implements Serializable {
 
-    @NotNull
     @Size(min = 3, max = 50)
     private String login;
 
-    @NotNull
     @Email
     private String email;
 
@@ -43,6 +40,11 @@ public class UserProfileVM implements Serializable {
     private String profileVisibility;
     private Boolean showEmail;
     private Boolean showPhone;
+
+    // Investment profile settings
+    private String riskTolerance;
+    private String investmentGoal;
+    private String investmentExperience;
 
     // Getters and Setters
 
@@ -164,6 +166,32 @@ public class UserProfileVM implements Serializable {
 
     public void setShowPhone(Boolean showPhone) {
         this.showPhone = showPhone;
+    }
+
+    // Investment profile getters and setters
+
+    public String getRiskTolerance() {
+        return riskTolerance;
+    }
+
+    public void setRiskTolerance(String riskTolerance) {
+        this.riskTolerance = riskTolerance;
+    }
+
+    public String getInvestmentGoal() {
+        return investmentGoal;
+    }
+
+    public void setInvestmentGoal(String investmentGoal) {
+        this.investmentGoal = investmentGoal;
+    }
+
+    public String getInvestmentExperience() {
+        return investmentExperience;
+    }
+
+    public void setInvestmentExperience(String investmentExperience) {
+        this.investmentExperience = investmentExperience;
     }
 
     @Override

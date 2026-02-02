@@ -37,7 +37,7 @@ public class CompanyInternalResource {
     public Mono<ResponseEntity<Void>> saveCompanyProfile(@RequestBody CompanyProfileRequest request) {
         log.info("Received company profile for symbol: {}", request.symbol());
 
-        return companyRepository.findBySymbol(request.symbol())
+        return companyRepository.findFirstBySymbol(request.symbol())
                 .switchIfEmpty(Mono.fromSupplier(() -> {
                     Company newCompany = new Company();
                     newCompany.setSymbol(request.symbol());

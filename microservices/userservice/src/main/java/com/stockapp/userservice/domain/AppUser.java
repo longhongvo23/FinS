@@ -2,6 +2,7 @@ package com.stockapp.userservice.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.stockapp.userservice.domain.enumeration.AccountStatus;
+import com.stockapp.userservice.security.encryption.Encrypted;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
@@ -33,6 +34,8 @@ public class AppUser implements Serializable {
     @Field("password")
     private String password;
 
+    // NOTE: email is NOT encrypted because it's used for login authentication
+    // and needs to be queried directly via findByEmail()
     @NotNull(message = "must not be null")
     @Pattern(regexp = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     @Field("email")
@@ -71,6 +74,9 @@ public class AppUser implements Serializable {
     @Field("account_locked_until")
     private Instant accountLockedUntil;
 
+    // NOTE: password_reset_token is NOT encrypted because it needs to be queried
+    // directly
+    // Security: Token is random UUID with expiry, one-time use only
     @Size(max = 100)
     @Field("password_reset_token")
     private String passwordResetToken;
@@ -78,6 +84,9 @@ public class AppUser implements Serializable {
     @Field("password_reset_token_expiry")
     private Instant passwordResetTokenExpiry;
 
+    // NOTE: email_verification_token is NOT encrypted because it needs to be
+    // queried directly
+    // Security: Token is random UUID with expiry, one-time use only
     @Size(max = 100)
     @Field("email_verification_token")
     private String emailVerificationToken;
@@ -85,6 +94,8 @@ public class AppUser implements Serializable {
     @Field("email_verification_token_expiry")
     private Instant emailVerificationTokenExpiry;
 
+    // NOTE: activation_key is NOT encrypted because it needs to be queried directly
+    // Security: Key is random UUID, one-time use only
     @Size(max = 100)
     @Field("activation_key")
     private String activationKey;
@@ -94,10 +105,12 @@ public class AppUser implements Serializable {
     private Boolean twoFactorEnabled;
 
     @Size(max = 64)
+    @Encrypted(reason = "2FA secret - critical security data")
     @Field("two_factor_secret")
     private String twoFactorSecret;
 
     @Size(max = 45)
+    @Encrypted(reason = "PII - IP address can identify user location")
     @Field("last_login_ip")
     private String lastLoginIp;
 

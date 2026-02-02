@@ -22,8 +22,11 @@ public class RegisterVM implements Serializable {
     @Email
     private String email;
 
-    @Size(max = 200)
-    private String fullName;
+    @Size(max = 50)
+    private String firstName;
+
+    @Size(max = 50)
+    private String lastName;
 
     @Size(max = 10)
     private String language;
@@ -52,12 +55,20 @@ public class RegisterVM implements Serializable {
         this.email = email;
     }
 
-    public String getFullName() {
-        return fullName;
+    public String getFirstName() {
+        return firstName;
     }
 
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
     }
 
     public String getLanguage() {
@@ -68,12 +79,33 @@ public class RegisterVM implements Serializable {
         this.language = language;
     }
 
+    /**
+     * Helper method to get full name from firstName and lastName
+     */
+    public String getFullName() {
+        if (firstName == null && lastName == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        if (lastName != null) {
+            sb.append(lastName);
+        }
+        if (firstName != null) {
+            if (sb.length() > 0) {
+                sb.append(" ");
+            }
+            sb.append(firstName);
+        }
+        return sb.toString();
+    }
+
     @Override
     public String toString() {
         return "RegisterVM{" +
                 "login='" + login + '\'' +
                 ", email='" + email + '\'' +
-                ", fullName='" + fullName + '\'' +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
                 ", language='" + language + '\'' +
                 '}';
     }

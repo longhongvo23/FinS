@@ -64,6 +64,27 @@ class BatchPredictionRequest(BaseModel):
     forecast_days: Optional[int] = 30
 
 
+class ForecastDataPoint(BaseModel):
+    """Single data point for forecast chart"""
+    date: str
+    actual: Optional[float] = None  # Historical actual price
+    predicted: Optional[float] = None  # Predicted price
+    lower: Optional[float] = None  # Lower confidence bound
+    upper: Optional[float] = None  # Upper confidence bound
+
+
+class ForecastChartResponse(BaseModel):
+    """Response model for forecast chart data"""
+    symbol: str
+    forecast_days: int
+    current_price: float
+    predicted_price: float
+    change_percent: float
+    recommendation: str
+    data: List[ForecastDataPoint]  # Chart data points
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class HealthResponse(BaseModel):
     """Health check response"""
     status: str

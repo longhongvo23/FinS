@@ -50,8 +50,8 @@ public class PublicUserResource {
     public Mono<ResponseEntity<UserProfileVM>> getCurrentUserProfile() {
         LOG.debug("Public API request to get current user profile");
 
-        return getCurrentUserId()
-                .flatMap(appUserService::findOne)
+        return getCurrentUsername()
+                .flatMap(appUserService::findByLogin)
                 .flatMap(this::toUserProfileVM)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
@@ -67,18 +67,20 @@ public class PublicUserResource {
     public Mono<ResponseEntity<UserProfileVM>> updateCurrentUserProfile(@Valid @RequestBody UserProfileVM profileVM) {
         LOG.debug("Public API request to update current user profile : {}", profileVM);
 
-        return getCurrentUserId()
-                .flatMap(userId -> {
+        return getCurrentUsername()
+                .flatMap(login -> appUserService.findByLogin(login))
+                .flatMap(userDTO -> {
+                    String userId = userDTO.getId();
                     // Update AppUser fields
-                    Mono<AppUserDTO> userUpdateMono = appUserService.findOne(userId)
-                            .flatMap(userDTO -> {
+                    Mono<AppUserDTO> userUpdateMono = Mono.just(userDTO)
+                            .flatMap(u -> {
                                 if (profileVM.getLanguage() != null) {
-                                    userDTO.setLanguage(profileVM.getLanguage());
+                                    u.setLanguage(profileVM.getLanguage());
                                 }
                                 if (profileVM.getTimezone() != null) {
-                                    userDTO.setTimezone(profileVM.getTimezone());
+                                    u.setTimezone(profileVM.getTimezone());
                                 }
-                                return appUserService.update(userDTO);
+                                return appUserService.update(u);
                             });
 
                     // Update or create UserProfile
@@ -90,24 +92,48 @@ public class PublicUserResource {
                             .switchIfEmpty(Mono.defer(() -> {
                                 UserProfileDTO newProfile = new UserProfileDTO();
                                 updateProfileFields(newProfile, profileVM);
-                                return appUserService.findOne(userId)
-                                        .flatMap(user -> {
-                                            newProfile.setUser(user);
-                                            return userProfileService.save(newProfile);
-                                        });
+                                newProfile.setUser(userDTO);
+                                return userProfileService.save(newProfile);
                             }));
 
                     return Mono.zip(userUpdateMono, profileUpdateMono)
-                            .then(appUserService.findOne(userId));
+                            .then(appUserService.findByLogin(userDTO.getLogin()));
                 })
                 .flatMap(this::toUserProfileVM)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.badRequest().build());
     }
 
+    /**
+     * DELETE /api/public/users/me : Delete current user account
+     *
+     * @return empty response with 204 status
+     */
+    @DeleteMapping("/me")
+    @Operation(summary = "Delete current user account")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Account deleted successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public Mono<ResponseEntity<Void>> deleteCurrentUserAccount() {
+        LOG.debug("Public API request to delete current user account");
+
+        return getCurrentUsername()
+                .flatMap(appUserService::findByLogin)
+                .flatMap(userDTO -> {
+                    String userId = userDTO.getId();
+                    // Delete UserProfile first (if exists)
+                    return userProfileService.findByUserId(userId)
+                            .flatMap(profile -> userProfileService.delete(profile.getId()))
+                            .then(Mono.defer(() -> appUserService.delete(userId)));
+                })
+                .then(Mono.just(ResponseEntity.noContent().<Void>build()))
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
     // Helper methods
 
-    private Mono<String> getCurrentUserId() {
+    private Mono<String> getCurrentUsername() {
         return ReactiveSecurityContextHolder.getContext()
                 .map(SecurityContext::getAuthentication)
                 .map(Authentication::getName)
@@ -135,6 +161,10 @@ public class PublicUserResource {
                     vm.setProfileVisibility(profile.getProfileVisibility());
                     vm.setShowEmail(profile.getShowEmail());
                     vm.setShowPhone(profile.getShowPhone());
+                    // Investment profile fields
+                    vm.setRiskTolerance(profile.getRiskTolerance());
+                    vm.setInvestmentGoal(profile.getInvestmentGoal());
+                    vm.setInvestmentExperience(profile.getInvestmentExperience());
                     return vm;
                 })
                 .defaultIfEmpty(vm);
@@ -167,6 +197,16 @@ public class PublicUserResource {
         }
         if (vm.getShowPhone() != null) {
             profile.setShowPhone(vm.getShowPhone());
+        }
+        // Investment profile fields
+        if (vm.getRiskTolerance() != null) {
+            profile.setRiskTolerance(vm.getRiskTolerance());
+        }
+        if (vm.getInvestmentGoal() != null) {
+            profile.setInvestmentGoal(vm.getInvestmentGoal());
+        }
+        if (vm.getInvestmentExperience() != null) {
+            profile.setInvestmentExperience(vm.getInvestmentExperience());
         }
     }
 }

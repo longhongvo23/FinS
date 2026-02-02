@@ -1,83 +1,153 @@
-# ===================================================================
-# Microservices - Java Services .gitignore
-# ===================================================================
+######################
+# Node
+######################
+/node/
+node_tmp/
+node_modules/
+npm-debug.log.*
+/.awcache/*
+/.cache-loader/*
 
-# ===================================================================
-# Maven
-# ===================================================================
-target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
-# IMPORTANT: Keep maven-wrapper.properties for build reproducibility
-!.mvn/wrapper/maven-wrapper.properties
+######################
+# SASS
+######################
+.sass-cache/
 
-# ===================================================================
-# Gradle
-# ===================================================================
-.gradle/
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-# ===================================================================
-# IDE
-# ===================================================================
-.idea/
-*.iws
-*.iml
-*.ipr
-.vscode/
-.settings/
-.classpath
+######################
+# Eclipse
+######################
+*.pydevproject
 .project
+.metadata
+tmp/
+tmp/**/*
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.classpath
+.settings/
+.loadpath
 .factorypath
 
-# ===================================================================
-# JHipster
-# ===================================================================
-.yo-rc.json
-.jhipster/
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# External tool builders
+.externalToolBuilders/**
 
-# ===================================================================
-# Spring Boot
-# ===================================================================
-*.log
-*.gz
-spring-boot-*.log
+# Locally stored "Eclipse launch configurations"
+*.launch
 
-# ===================================================================
-# Java
-# ===================================================================
-*.class
+# CDT-specific
+.cproject
+
+# PDT-specific
+.buildpath
+
+# STS-specific
+/.sts4-cache/*
+
+######################
+# IntelliJ
+######################
+.idea/
+*.iml
+*.iws
+*.ipr
+*.ids
+*.orig
+classes/
+out/
+
+######################
+# Visual Studio Code
+######################
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+######################
+# Maven
+######################
+/log/
+/target/
+
+######################
+# Gradle
+######################
+.gradle/
+/build/
+/buildSrc/.gradle/
+/buildSrc/build/
+
+######################
+# Package Files
+######################
 *.jar
 *.war
 *.ear
-hs_err_pid*
-
-# ===================================================================
-# Environment
-# ===================================================================
-.env
-.env.local
-application-dev.yml
-application-prod.yml
-!application.yml
-
-# ===================================================================
-# Test
-# ===================================================================
 *.db
-/out/
+
+######################
+# Windows
+######################
+# Windows image file caches
+Thumbs.db
+
+# Folder config file
+Desktop.ini
+
+######################
+# Mac OSX
+######################
+.DS_Store
+.svn
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+.Spotlight-V100
+.Trashes
+
+######################
+# Directories
+######################
 /bin/
+/deploy/
+
+######################
+# Logs
+######################
+*.log*
+
+######################
+# Others
+######################
+*.class
+*.*~
+*~
+.merge_file*
+
+######################
+# Gradle Wrapper
+######################
+!gradle/wrapper/gradle-wrapper.jar
+
+######################
+# Maven Wrapper
+######################
+!.mvn/wrapper/maven-wrapper.jar
+
+######################
+# ESLint
+######################
+.eslintcache
+
+######################
+# Code coverage
+######################
+coverage/
+.nyc_output/

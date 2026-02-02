@@ -27,4 +27,8 @@ public interface UserProfileRepository extends ReactiveMongoRepository<UserProfi
 
     // Custom query for finding profile by user ID
     Mono<UserProfile> findByUserId(String userId);
+
+    // Find profile by user login (username)
+    @Query("{'user.login': ?0}")
+    Mono<UserProfile> findByUserLogin(String login);
 }

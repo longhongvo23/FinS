@@ -6,6 +6,7 @@ import com.stockapp.crawlservice.client.dto.QuoteResponse;
 import com.stockapp.crawlservice.domain.CrawlJobState;
 import com.stockapp.crawlservice.domain.enumeration.JobStatus;
 import com.stockapp.crawlservice.repository.CrawlJobStateRepository;
+import com.stockapp.crawlservice.service.NotificationServiceClient;
 import com.stockapp.crawlservice.service.StockServiceClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,21 +26,25 @@ import java.time.Instant;
 public class DailyQuoteScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(DailyQuoteScheduler.class);
+    private static final double VOLATILITY_THRESHOLD = 5.0; // Alert when change > 5%
 
     private final TwelveDataClient twelveDataClient;
     private final ApiProperties apiProperties;
     private final CrawlJobStateRepository crawlJobStateRepository;
     private final StockServiceClient stockServiceClient;
+    private final NotificationServiceClient notificationServiceClient;
 
     public DailyQuoteScheduler(
             TwelveDataClient twelveDataClient,
             ApiProperties apiProperties,
             CrawlJobStateRepository crawlJobStateRepository,
-            StockServiceClient stockServiceClient) {
+            StockServiceClient stockServiceClient,
+            NotificationServiceClient notificationServiceClient) {
         this.twelveDataClient = twelveDataClient;
         this.apiProperties = apiProperties;
         this.crawlJobStateRepository = crawlJobStateRepository;
         this.stockServiceClient = stockServiceClient;
+        this.notificationServiceClient = notificationServiceClient;
     }
 
     /**
@@ -71,7 +76,26 @@ public class DailyQuoteScheduler {
                 .flatMap(quote -> {
                     // Send to StockService for persistence
                     return stockServiceClient.updateDailyQuote(symbol, toQuoteUpdateRequest(symbol, quote))
-                            .then(updateJobState(symbol, JobStatus.SUCCEEDED, null));
+                            .then(Mono.defer(() -> {
+                                // Check for significant price movement and send notification
+                                try {
+                                    String percentChangeStr = quote.getPercentChange();
+                                    if (percentChangeStr != null) {
+                                        double percentChange = Double.parseDouble(percentChangeStr);
+                                        if (Math.abs(percentChange) >= VOLATILITY_THRESHOLD) {
+                                            log.info("Significant price movement detected for {}: {}%", symbol,
+                                                    percentChange);
+                                            return notificationServiceClient
+                                                    .sendPriceAlert(symbol, percentChange, quote.getClose())
+                                                    .then(updateJobState(symbol, JobStatus.SUCCEEDED, null));
+                                        }
+                                    }
+                                } catch (NumberFormatException e) {
+                                    log.warn("Could not parse percent change for {}: {}", symbol,
+                                            quote.getPercentChange());
+                                }
+                                return updateJobState(symbol, JobStatus.SUCCEEDED, null);
+                            }));
                 })
                 .onErrorResume(error -> {
                     log.error("Error updating quote for {}: {}", symbol, error.getMessage());

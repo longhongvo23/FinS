@@ -154,8 +154,7 @@ public class WatchlistItemService {
                             WatchlistItemDTO newItem = new WatchlistItemDTO();
                             newItem.setSymbol(symbol);
                             newItem.setAddedAt(java.time.Instant.now());
-                            // Set user relationship - you may need to adjust this based on your AppUserDTO
-                            // structure
+                            newItem.setUserId(userId); // Set the user ID for this watchlist item
                             return save(newItem);
                         }));
     }
@@ -184,5 +183,18 @@ public class WatchlistItemService {
         return watchlistItemRepository.findByUserIdAndSymbol(userId, symbol)
                 .map(item -> true)
                 .defaultIfEmpty(false);
+    }
+
+    /**
+     * Get all user IDs watching a specific symbol.
+     * Used for sending notifications to users who follow a stock.
+     *
+     * @param symbol the stock symbol.
+     * @return list of user IDs.
+     */
+    public Flux<String> findUserIdsBySymbol(String symbol) {
+        LOG.debug("Request to get all userIds watching symbol : {}", symbol);
+        return watchlistItemRepository.findBySymbol(symbol)
+                .map(item -> item.getUserId());
     }
 }

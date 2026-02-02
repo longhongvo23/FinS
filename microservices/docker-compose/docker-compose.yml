@@ -9,7 +9,10 @@ services:
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${GATEWAY_MONGODB_USER}:${GATEWAY_MONGODB_PASSWORD}@gateway-mongodb:27017/gateway?authSource=admin&waitQueueMultiple=1000
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
-      - JHIPSTER_CORS_ALLOWED_ORIGINS=http://localhost:8100,https://localhost:8100,http://localhost:9000,https://localhost:9000,http://localhost:2601,https://localhost:2601,http://localhost:2302,https://localhost:2302
+      - JHIPSTER_CORS_ALLOWED_ORIGINS=http://localhost:8100,https://localhost:8100,http://localhost:9000,https://localhost:9000,http://localhost:2601,https://localhost:2601,http://localhost:2302,https://localhost:2302,capacitor://localhost,http://localhost,https://localhost
+      - JHIPSTER_CORS_ALLOWED_ORIGIN_PATTERNS=http://192.168.*.*:*,https://192.168.*.*:*
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
     ports:
       - 8080:8080
     healthcheck:
@@ -50,6 +53,8 @@ services:
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${USERSERVICE_MONGODB_USER}:${USERSERVICE_MONGODB_PASSWORD}@userservice-mongodb:27017/userservice?authSource=admin&waitQueueMultiple=1000
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
     healthcheck:
       test:
         - CMD
@@ -88,6 +93,10 @@ services:
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${NOTIFICATIONSERVICE_MONGODB_USER}:${NOTIFICATIONSERVICE_MONGODB_PASSWORD}@notificationservice-mongodb:27017/notificationservice?authSource=admin&waitQueueMultiple=1000
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
+    ports:
+      - 8082:8082
     healthcheck:
       test:
         - CMD
@@ -126,6 +135,8 @@ services:
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${STOCKSERVICE_MONGODB_USER}:${STOCKSERVICE_MONGODB_PASSWORD}@stockservice-mongodb:27017/stockservice?authSource=admin&waitQueueMultiple=1000
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
     healthcheck:
       test:
         - CMD
@@ -164,6 +175,8 @@ services:
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${NEWSSERVICE_MONGODB_USER}:${NEWSSERVICE_MONGODB_PASSWORD}@newsservice-mongodb:27017/newsservice?authSource=admin&waitQueueMultiple=1000
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
     healthcheck:
       test:
         - CMD
@@ -202,6 +215,8 @@ services:
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${CRAWLSERVICE_MONGODB_USER}:${CRAWLSERVICE_MONGODB_PASSWORD}@crawlservice-mongodb:27017/crawlservice?authSource=admin&waitQueueMultiple=1000
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
       - APPLICATION_API_TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}
       - APPLICATION_API_TWELVE_DATA_BASE_URL=${TWELVE_DATA_BASE_URL}
       - APPLICATION_API_FINNHUB_API_KEY=${FINNHUB_API_KEY}
@@ -325,6 +340,58 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  aitoolsservice:
+    image: aitoolsservice
+    environment:
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
+      - SPRING_CLOUD_CONSUL_HOST=consul
+      - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_DATA_MONGODB_URI=mongodb://${AITOOLSSERVICE_MONGODB_USER:-admin}:${AITOOLSSERVICE_MONGODB_PASSWORD:-admin}@aitoolsservice-mongodb:27017/aitoolsservice?authSource=admin&waitQueueMultiple=1000
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=gemini-2.5-flash
+      - APPLICATION_STOCK_SERVICE_URL=http://stockservice:8083
+      - APPLICATION_FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - APPLICATION_FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
+    ports:
+      - 8087:8087
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8087/management/health
+      interval: 5s
+      timeout: 5s
+      retries: 40
+    depends_on:
+      aitoolsservice-mongodb:
+        condition: service_healthy
+      stockservice:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      consul:
+        condition: service_started
+  aitoolsservice-mongodb:
+    image: mongo:8.0.9
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${AITOOLSSERVICE_MONGODB_USER:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${AITOOLSSERVICE_MONGODB_PASSWORD:-admin}
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --eval
+        - "db.adminCommand('ping')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
   prometheus:
     image: prom/prometheus:v3.3.1
     volumes:

@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 import asyncio
 from loguru import logger
@@ -13,7 +13,8 @@ from app.models import (
     PredictionResponse,
     BatchPredictionRequest,
     HealthResponse,
-    Recommendation
+    Recommendation,
+    ForecastChartResponse
 )
 from app.database import mongodb_service
 from app.prophet_service import prediction_service
@@ -152,14 +153,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS middleware - DISABLED: Gateway handles CORS
+# When running behind Spring Cloud Gateway, do not add CORS headers here
+# to avoid duplicate Access-Control-Allow-Origin headers
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 
 @app.get("/", tags=["Root"])
@@ -231,6 +234,38 @@ async def predict_stock(request: PredictionRequest):
         raise
     except Exception as e:
         logger.error(f"Error in predict endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/forecast/{symbol}", response_model=ForecastChartResponse, tags=["Prediction"])
+async def get_forecast_chart(
+    symbol: str,
+    forecast_days: Optional[int] = Query(30, ge=1, le=90, description="Number of days to forecast"),
+    history_days: Optional[int] = Query(90, ge=30, le=365, description="Number of historical days to include")
+):
+    """
+    Get forecast chart data for a symbol (historical + predicted)
+    """
+    try:
+        forecast_data = await prediction_service.get_forecast_chart_data(
+            symbol=symbol.upper(),
+            forecast_days=forecast_days,
+            history_days=history_days
+        )
+        
+        if forecast_data is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unable to generate forecast for {symbol}. "
+                       f"Insufficient historical data (minimum 30 days required)."
+            )
+        
+        return ForecastChartResponse(**forecast_data)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in forecast chart endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

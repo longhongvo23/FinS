@@ -31,4 +31,7 @@ public interface WatchlistItemRepository extends ReactiveMongoRepository<Watchli
     Mono<WatchlistItem> findByUserIdAndSymbol(String userId, String symbol);
 
     Mono<Void> deleteByUserIdAndSymbol(String userId, String symbol);
+
+    // Find all users watching a specific symbol (for notifications)
+    Flux<WatchlistItem> findBySymbol(String symbol);
 }
