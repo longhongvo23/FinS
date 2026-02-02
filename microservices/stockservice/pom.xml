@@ -36,7 +36,7 @@
         <spring-boot.version>${project.parent.version}</spring-boot.version>
         <archunit-junit5.version>1.4.0</archunit-junit5.version>
         <blockhound-junit-platform.version>1.0.11.RELEASE</blockhound-junit-platform.version>
-        <checkstyle.version>10.23.1</checkstyle.version>
+        <checkstyle.version>13.1.0</checkstyle.version>
         <feign-reactor-bom.version>4.2.1</feign-reactor-bom.version>
         <git-commit-id-maven-plugin.version>9.0.1</git-commit-id-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
