@@ -85,6 +85,9 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Make Maven Wrapper executable
+        run: chmod +x microservices/${{ matrix.service }}/mvnw
+
       - name: Run Checkstyle
         working-directory: microservices/${{ matrix.service }}
         run: ./mvnw checkstyle:check -q || true
@@ -235,6 +238,9 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Make Maven Wrapper executable
+        run: chmod +x microservices/${{ matrix.service }}/mvnw
+
       - name: Build and Test
         working-directory: microservices/${{ matrix.service }}
         run: ./mvnw clean verify -Pprod
@@ -296,6 +302,9 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
           cache: 'maven'
+
+      - name: Make Maven Wrapper executable
+        run: chmod +x microservices/${{ matrix.service }}/mvnw
 
       - name: Build Docker Image with Jib
         working-directory: microservices/${{ matrix.service }}

@@ -139,6 +139,7 @@ jobs:
         run: |
           # Build một service để demo
           cd microservices/gateway
+          chmod +x mvnw
           ./mvnw compile -DskipTests -q || true
 
       - name: Perform CodeQL Analysis
@@ -173,6 +174,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 9
+
+      - name: Make Maven Wrapper executable
+        run: chmod +x microservices/gateway/mvnw
 
       # Build Gateway (demo một service)
       - name: Build Gateway Service
