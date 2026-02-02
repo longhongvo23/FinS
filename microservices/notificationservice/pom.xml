@@ -12,7 +12,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.5</version>
+        <version>4.0.2</version>
         <relativePath/>
         <!-- lookup parent from repository -->
     </parent>
@@ -34,28 +34,28 @@
         <m2e.apt.activation>jdt_apt</m2e.apt.activation>
         <run.addResources>false</run.addResources>
         <spring-boot.version>${project.parent.version}</spring-boot.version>
-        <archunit-junit5.version>1.4.0</archunit-junit5.version>
-        <blockhound-junit-platform.version>1.0.11.RELEASE</blockhound-junit-platform.version>
-        <checkstyle.version>10.23.1</checkstyle.version>
+        <archunit-junit5.version>1.4.1</archunit-junit5.version>
+        <blockhound-junit-platform.version>1.0.16.RELEASE</blockhound-junit-platform.version>
+        <checkstyle.version>13.1.0</checkstyle.version>
         <feign-reactor-bom.version>4.2.1</feign-reactor-bom.version>
-        <git-commit-id-maven-plugin.version>9.0.1</git-commit-id-maven-plugin.version>
-        <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
+        <git-commit-id-maven-plugin.version>9.0.2</git-commit-id-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
         <jhipster-framework.version>8.11.0</jhipster-framework.version>
         <jib-maven-plugin.architecture>amd64</jib-maven-plugin.architecture>
         <jib-maven-plugin.image>eclipse-temurin:17-jre-focal</jib-maven-plugin.image>
-        <jib-maven-plugin.version>3.4.5</jib-maven-plugin.version>
+        <jib-maven-plugin.version>3.4.6</jib-maven-plugin.version>
         <lifecycle-mapping.version>1.0.0</lifecycle-mapping.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
         <maven-clean-plugin.version>3.4.1</maven-clean-plugin.version>
-        <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
+        <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
         <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
-        <maven-failsafe-plugin.version>3.5.3</maven-failsafe-plugin.version>
+        <maven-failsafe-plugin.version>3.5.4</maven-failsafe-plugin.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
-        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <maven-javadoc-plugin.version>3.11.3</maven-javadoc-plugin.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
         <maven-site-plugin.version>3.21.0</maven-site-plugin.version>
-        <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
+        <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <maven-war-plugin.version>3.4.0</maven-war-plugin.version>
         <micrometer-context-propagation.version>1.1.3</micrometer-context-propagation.version>
         <modernizer-maven-plugin.version>3.1.0</modernizer-maven-plugin.version>
@@ -68,10 +68,10 @@
         <properties-maven-plugin.version>1.2.1</properties-maven-plugin.version>
         <resource.delimiter>@</resource.delimiter>
         <sonar-maven-plugin.version>5.1.0.4751</sonar-maven-plugin.version>
-        <spotless-maven-plugin.version>2.44.4</spotless-maven-plugin.version>
-        <spring-cloud-dependencies.version>2024.0.1</spring-cloud-dependencies.version>
+        <spotless-maven-plugin.version>3.2.1</spotless-maven-plugin.version>
+        <spring-cloud-dependencies.version>2025.1.1</spring-cloud-dependencies.version>
         <spring.profiles.active>dev</spring.profiles.active>
-        <springdoc-openapi-starter-webflux-api.version>2.8.8</springdoc-openapi-starter-webflux-api.version>
+        <springdoc-openapi-starter-webflux-api.version>3.0.1</springdoc-openapi-starter-webflux-api.version>
     </properties>
 
     <dependencyManagement>
