@@ -31,6 +31,6 @@ APScheduler==3.10.4
 loguru==0.7.2
 
 # Testing (Optional)
-pytest==7.4.3
+pytest==9.0.2
 pytest-asyncio==0.21.1
 httpx==0.26.0
