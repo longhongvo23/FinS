@@ -1,0 +1,254 @@
+# ============================================================================
+# FinS - Docker Compose with GHCR Images
+# ============================================================================
+# Sử dụng images từ GitHub Container Registry
+# Pull sau khi CI/CD build xong
+# ============================================================================
+
+name: fins
+
+services:
+  # ==========================================================================
+  # Infrastructure
+  # ==========================================================================
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD:-admin123}
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb-security/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - fins-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  consul:
+    image: hashicorp/consul:1.19
+    container_name: consul
+    restart: unless-stopped
+    ports:
+      - "8500:8500"
+    command: agent -server -ui -bootstrap-expect=1 -client=0.0.0.0
+    networks:
+      - fins-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - fins-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - fins-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - fins-network
+
+  # ==========================================================================
+  # Java Microservices (from GHCR)
+  # ==========================================================================
+  gateway:
+    image: ghcr.io/longhongvo23/fins-gateway:latest
+    container_name: gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONSUL_HOST=consul
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_GATEWAY_USER}:${MONGODB_GATEWAY_PASSWORD}@mongodb:27017/gateway?authSource=admin
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      - mongodb
+      - consul
+      - kafka
+    networks:
+      - fins-network
+
+  userservice:
+    image: ghcr.io/longhongvo23/fins-userservice:latest
+    container_name: userservice
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONSUL_HOST=consul
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_USERSERVICE_USER}:${MONGODB_USERSERVICE_PASSWORD}@mongodb:27017/userservice?authSource=admin
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+    depends_on:
+      - mongodb
+      - consul
+      - kafka
+    networks:
+      - fins-network
+
+  stockservice:
+    image: ghcr.io/longhongvo23/fins-stockservice:latest
+    container_name: stockservice
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONSUL_HOST=consul
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_STOCKSERVICE_USER}:${MONGODB_STOCKSERVICE_PASSWORD}@mongodb:27017/stockservice?authSource=admin
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+    depends_on:
+      - mongodb
+      - consul
+      - kafka
+    networks:
+      - fins-network
+
+  newsservice:
+    image: ghcr.io/longhongvo23/fins-newsservice:latest
+    container_name: newsservice
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONSUL_HOST=consul
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_NEWSSERVICE_USER}:${MONGODB_NEWSSERVICE_PASSWORD}@mongodb:27017/newsservice?authSource=admin
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      - mongodb
+      - consul
+      - kafka
+    networks:
+      - fins-network
+
+  notificationservice:
+    image: ghcr.io/longhongvo23/fins-notificationservice:latest
+    container_name: notificationservice
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONSUL_HOST=consul
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_NOTIFICATION_USER}:${MONGODB_NOTIFICATION_PASSWORD}@mongodb:27017/notificationservice?authSource=admin
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      - mongodb
+      - consul
+      - kafka
+    networks:
+      - fins-network
+
+  crawlservice:
+    image: ghcr.io/longhongvo23/fins-crawlservice:latest
+    container_name: crawlservice
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONSUL_HOST=consul
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_CRAWLSERVICE_USER}:${MONGODB_CRAWLSERVICE_PASSWORD}@mongodb:27017/crawlservice?authSource=admin
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - VIETSTOCK_API_KEY=${VIETSTOCK_API_KEY}
+    depends_on:
+      - mongodb
+      - consul
+      - kafka
+    networks:
+      - fins-network
+
+  aitoolsservice:
+    image: ghcr.io/longhongvo23/fins-aitoolsservice:latest
+    container_name: aitoolsservice
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONSUL_HOST=consul
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_AITOOLS_USER}:${MONGODB_AITOOLS_PASSWORD}@mongodb:27017/aitoolsservice?authSource=admin
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - mongodb
+      - consul
+      - kafka
+    networks:
+      - fins-network
+
+  # ==========================================================================
+  # AI Service (Python)
+  # ==========================================================================
+  aiservice:
+    image: ghcr.io/longhongvo23/fins-aiservice:latest
+    container_name: aiservice
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=mongodb://${MONGODB_AITOOLS_USER}:${MONGODB_AITOOLS_PASSWORD}@mongodb:27017/aiservice?authSource=admin
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+    depends_on:
+      - mongodb
+      - kafka
+    networks:
+      - fins-network
+
+  # ==========================================================================
+  # Frontend (React)
+  # ==========================================================================
+  frontend:
+    image: ghcr.io/longhongvo23/fins-frontend:latest
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://gateway:8080
+    depends_on:
+      - gateway
+    networks:
+      - fins-network
+
+networks:
+  fins-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
