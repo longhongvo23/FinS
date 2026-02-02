@@ -34,7 +34,7 @@
         <m2e.apt.activation>jdt_apt</m2e.apt.activation>
         <run.addResources>false</run.addResources>
         <spring-boot.version>${project.parent.version}</spring-boot.version>
-        <archunit-junit5.version>1.4.0</archunit-junit5.version>
+        <archunit-junit5.version>1.4.1</archunit-junit5.version>
         <blockhound-junit-platform.version>1.0.11.RELEASE</blockhound-junit-platform.version>
         <checkstyle.version>10.23.1</checkstyle.version>
         <feign-reactor-bom.version>4.2.1</feign-reactor-bom.version>
