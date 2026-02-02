@@ -156,7 +156,7 @@ jobs:
         run: bandit -r app/ -f json -o bandit-report.json || true
 
       - name: Upload Bandit Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: bandit-security-report
           path: microservices/aiservice/bandit-report.json
@@ -194,7 +194,7 @@ jobs:
           out: 'dependency-check-report'
 
       - name: Upload Dependency Check Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dependency-check-report
           path: dependency-check-report
@@ -225,7 +225,7 @@ jobs:
         run: ./mvnw clean verify -Pprod
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: test-results-${{ matrix.service }}
