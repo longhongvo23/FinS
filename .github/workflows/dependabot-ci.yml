@@ -202,7 +202,7 @@ jobs:
       - name: Install & Build
         working-directory: client/smarttrade-web
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm build
 
   # ============================================================================

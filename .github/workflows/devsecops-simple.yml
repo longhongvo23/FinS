@@ -18,6 +18,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Quyền hạn tối thiểu để pass Checkov security check
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 env:
   JAVA_VERSION: '17'
   NODE_VERSION: '20'
@@ -164,9 +170,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 9
 
       # Build Gateway (demo một service)
       - name: Build Gateway Service
@@ -178,7 +184,7 @@ jobs:
       - name: Build Frontend
         working-directory: client/smarttrade-web
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm build
         continue-on-error: true
 

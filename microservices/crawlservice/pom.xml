@@ -72,6 +72,7 @@
         <spring-cloud-dependencies.version>2024.0.1</spring-cloud-dependencies.version>
         <spring.profiles.active>dev</spring.profiles.active>
         <springdoc-openapi-starter-webflux-api.version>2.8.8</springdoc-openapi-starter-webflux-api.version>
+        <testcontainers.version>1.19.3</testcontainers.version>
     </properties>
 
     <dependencyManagement>
@@ -94,6 +95,13 @@
                 <groupId>io.mongock</groupId>
                 <artifactId>mongock-bom</artifactId>
                 <version>${mongock-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
