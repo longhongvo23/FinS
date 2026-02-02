@@ -38,3 +38,4 @@ scrape_configs:
           - stockservice:8083
           - newsservice:8084
           - crawlservice:8085
+          - aitoolsservice:8087

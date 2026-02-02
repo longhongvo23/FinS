@@ -87,11 +87,24 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
       - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${GATEWAY_MONGODB_USER}:${GATEWAY_MONGODB_PASSWORD}@mongodb:27017/gateway?authSource=admin
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_DATA_MONGODB_URI=mongodb://${GATEWAY_MONGODB_USER}:${GATEWAY_MONGODB_PASSWORD}@mongodb:27017/gateway?authSource=admin&waitQueueMultiple=1000
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - JHIPSTER_CORS_ALLOWED_ORIGINS=http://localhost:8100,https://localhost:8100,http://localhost:9000,https://localhost:9000,http://localhost:2601,https://localhost:2601,http://localhost:2302,https://localhost:2302,http://localhost:3000,https://localhost:3000,capacitor://localhost,http://localhost,https://localhost
+      - JHIPSTER_CORS_ALLOWED_ORIGIN_PATTERNS=http://192.168.*.*:*,https://192.168.*.*:*
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/management/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
     depends_on:
       - mongodb
       - consul
@@ -106,12 +119,22 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
       - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${USERSERVICE_MONGODB_USER}:${USERSERVICE_MONGODB_PASSWORD}@mongodb:27017/userservice?authSource=admin
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_DATA_MONGODB_URI=mongodb://${USERSERVICE_MONGODB_USER}:${USERSERVICE_MONGODB_PASSWORD}@mongodb:27017/userservice?authSource=admin&waitQueueMultiple=1000
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/management/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
     depends_on:
       - mongodb
       - consul
@@ -124,15 +147,26 @@ services:
     container_name: stockservice
     restart: unless-stopped
     ports:
-      - "8082:8082"
+      - "8083:8083"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
       - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${STOCKSERVICE_MONGODB_USER}:${STOCKSERVICE_MONGODB_PASSWORD}@mongodb:27017/stockservice?authSource=admin
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_DATA_MONGODB_URI=mongodb://${STOCKSERVICE_MONGODB_USER}:${STOCKSERVICE_MONGODB_PASSWORD}@mongodb:27017/stockservice?authSource=admin&waitQueueMultiple=1000
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
       - TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}
+      - TWELVE_DATA_BASE_URL=${TWELVE_DATA_BASE_URL:-https://api.twelvedata.com}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/management/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
     depends_on:
       - mongodb
       - consul
@@ -145,13 +179,24 @@ services:
     container_name: newsservice
     restart: unless-stopped
     ports:
-      - "8083:8083"
+      - "8084:8084"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
       - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${NEWSSERVICE_MONGODB_USER}:${NEWSSERVICE_MONGODB_PASSWORD}@mongodb:27017/newsservice?authSource=admin
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_DATA_MONGODB_URI=mongodb://${NEWSSERVICE_MONGODB_USER}:${NEWSSERVICE_MONGODB_PASSWORD}@mongodb:27017/newsservice?authSource=admin&waitQueueMultiple=1000
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - MARKETAUX_API_KEY=${MARKETAUX_API_KEY}
+      - MARKETAUX_BASE_URL=${MARKETAUX_BASE_URL:-https://api.marketaux.com/v1}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/management/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
     depends_on:
       - mongodb
       - consul
@@ -164,13 +209,24 @@ services:
     container_name: notificationservice
     restart: unless-stopped
     ports:
-      - "8084:8084"
+      - "8082:8082"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
       - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${NOTIFICATIONSERVICE_MONGODB_USER}:${NOTIFICATIONSERVICE_MONGODB_PASSWORD}@mongodb:27017/notificationservice?authSource=admin
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_DATA_MONGODB_URI=mongodb://${NOTIFICATIONSERVICE_MONGODB_USER}:${NOTIFICATIONSERVICE_MONGODB_PASSWORD}@mongodb:27017/notificationservice?authSource=admin&waitQueueMultiple=1000
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/management/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
     depends_on:
       - mongodb
       - consul
@@ -185,12 +241,22 @@ services:
     ports:
       - "8085:8085"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
       - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${CRAWLSERVICE_MONGODB_USER}:${CRAWLSERVICE_MONGODB_PASSWORD}@mongodb:27017/crawlservice?authSource=admin
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_DATA_MONGODB_URI=mongodb://${CRAWLSERVICE_MONGODB_USER}:${CRAWLSERVICE_MONGODB_PASSWORD}@mongodb:27017/crawlservice?authSource=admin&waitQueueMultiple=1000
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
       - MARKETAUX_API_KEY=${MARKETAUX_API_KEY}
+      - MARKETAUX_BASE_URL=${MARKETAUX_BASE_URL:-https://api.marketaux.com/v1}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/management/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
     depends_on:
       - mongodb
       - consul
@@ -203,14 +269,29 @@ services:
     container_name: aitoolsservice
     restart: unless-stopped
     ports:
-      - "8086:8086"
+      - "8087:8087"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
       - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${AITOOLSSERVICE_MONGODB_USER}:${AITOOLSSERVICE_MONGODB_PASSWORD}@mongodb:27017/aitoolsservice?authSource=admin
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_DATA_MONGODB_URI=mongodb://${AITOOLSSERVICE_MONGODB_USER}:${AITOOLSSERVICE_MONGODB_PASSWORD}@mongodb:27017/aitoolsservice?authSource=admin&waitQueueMultiple=1000
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=gemini-2.5-flash
+      - APPLICATION_STOCK_SERVICE_URL=http://stockservice:8082
+      - APPLICATION_FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - APPLICATION_FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/management/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
     depends_on:
       - mongodb
       - consul
@@ -238,20 +319,73 @@ services:
       - fins-network
 
   # ==========================================================================
-  # Frontend (React)
+  # Frontend (React) - Port 2302 như cấu hình CORS
   # ==========================================================================
   frontend:
     image: ghcr.io/longhongvo23/fins-frontend:latest
     container_name: frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "2302:80"
     environment:
       - VITE_API_URL=http://gateway:8080
     depends_on:
       - gateway
     networks:
       - fins-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================================================
+  # Monitoring Stack
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:v3.3.1
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus-conf/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    networks:
+      - fins-network
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager-conf/:/etc/alertmanager/
+    command:
+      - "--config.file=/etc/alertmanager/config.yml"
+      - "--storage.path=/alertmanager"
+    networks:
+      - fins-network
+
+  grafana:
+    image: grafana/grafana:12.0.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - fins-network
+    depends_on:
+      - prometheus
 
 networks:
   fins-network:
@@ -259,3 +393,5 @@ networks:
 
 volumes:
   mongodb_data:
+  prometheus_data:
+  grafana_data:
