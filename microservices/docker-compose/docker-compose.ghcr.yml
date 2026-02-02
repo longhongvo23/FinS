@@ -88,8 +88,9 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_GATEWAY_USER}:${MONGODB_GATEWAY_PASSWORD}@mongodb:27017/gateway?authSource=admin
+      - SPRING_DATA_MONGODB_URI=mongodb://${GATEWAY_MONGODB_USER}:${GATEWAY_MONGODB_PASSWORD}@mongodb:27017/gateway?authSource=admin
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
       - mongodb
@@ -106,8 +107,9 @@ services:
       - "8081:8081"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_USERSERVICE_USER}:${MONGODB_USERSERVICE_PASSWORD}@mongodb:27017/userservice?authSource=admin
+      - SPRING_DATA_MONGODB_URI=mongodb://${USERSERVICE_MONGODB_USER}:${USERSERVICE_MONGODB_PASSWORD}@mongodb:27017/userservice?authSource=admin
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
     depends_on:
@@ -125,8 +127,9 @@ services:
       - "8082:8082"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_STOCKSERVICE_USER}:${MONGODB_STOCKSERVICE_PASSWORD}@mongodb:27017/stockservice?authSource=admin
+      - SPRING_DATA_MONGODB_URI=mongodb://${STOCKSERVICE_MONGODB_USER}:${STOCKSERVICE_MONGODB_PASSWORD}@mongodb:27017/stockservice?authSource=admin
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
@@ -145,8 +148,9 @@ services:
       - "8083:8083"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_NEWSSERVICE_USER}:${MONGODB_NEWSSERVICE_PASSWORD}@mongodb:27017/newsservice?authSource=admin
+      - SPRING_DATA_MONGODB_URI=mongodb://${NEWSSERVICE_MONGODB_USER}:${NEWSSERVICE_MONGODB_PASSWORD}@mongodb:27017/newsservice?authSource=admin
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
       - mongodb
@@ -163,8 +167,9 @@ services:
       - "8084:8084"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_NOTIFICATION_USER}:${MONGODB_NOTIFICATION_PASSWORD}@mongodb:27017/notificationservice?authSource=admin
+      - SPRING_DATA_MONGODB_URI=mongodb://${NOTIFICATIONSERVICE_MONGODB_USER}:${NOTIFICATIONSERVICE_MONGODB_PASSWORD}@mongodb:27017/notificationservice?authSource=admin
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
       - mongodb
@@ -181,10 +186,11 @@ services:
       - "8085:8085"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_CRAWLSERVICE_USER}:${MONGODB_CRAWLSERVICE_PASSWORD}@mongodb:27017/crawlservice?authSource=admin
+      - SPRING_DATA_MONGODB_URI=mongodb://${CRAWLSERVICE_MONGODB_USER}:${CRAWLSERVICE_MONGODB_PASSWORD}@mongodb:27017/crawlservice?authSource=admin
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - VIETSTOCK_API_KEY=${VIETSTOCK_API_KEY}
+      - MARKETAUX_API_KEY=${MARKETAUX_API_KEY}
     depends_on:
       - mongodb
       - consul
@@ -200,8 +206,9 @@ services:
       - "8086:8086"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_DATA_MONGODB_URI=mongodb://${MONGODB_AITOOLS_USER}:${MONGODB_AITOOLS_PASSWORD}@mongodb:27017/aitoolsservice?authSource=admin
+      - SPRING_DATA_MONGODB_URI=mongodb://${AITOOLSSERVICE_MONGODB_USER}:${AITOOLSSERVICE_MONGODB_PASSWORD}@mongodb:27017/aitoolsservice?authSource=admin
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
@@ -221,9 +228,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MONGODB_URI=mongodb://${MONGODB_AITOOLS_USER}:${MONGODB_AITOOLS_PASSWORD}@mongodb:27017/aiservice?authSource=admin
+      - MONGODB_URI=mongodb://${AITOOLSSERVICE_MONGODB_USER}:${AITOOLSSERVICE_MONGODB_PASSWORD}@mongodb:27017/aiservice?authSource=admin
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - mongodb
       - kafka
