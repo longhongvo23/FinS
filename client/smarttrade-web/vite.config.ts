@@ -13,6 +13,17 @@ export default defineConfig({
     port: 2302,
     strictPort: true,
     host: 'localhost',
+    proxy: {
+      '/yahoo-api': {
+        target: 'https://query1.finance.yahoo.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/yahoo-api/, ''),
+        headers: {
+          'Origin': 'https://finance.yahoo.com',
+          'Referer': 'https://finance.yahoo.com/',
+        },
+      },
+    },
   },
   build: {
     outDir: 'dist',

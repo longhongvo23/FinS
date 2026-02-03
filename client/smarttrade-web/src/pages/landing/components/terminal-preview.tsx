@@ -97,7 +97,7 @@ export function TerminalPreview() {
       try {
         // Using Yahoo Finance API via a proxy or direct fetch
         const response = await fetch(
-          'https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1d&range=1d'
+          '/yahoo-api/v8/finance/chart/AAPL?interval=1d&range=1d'
         )
         const data = await response.json()
         const quote = data.chart.result[0].meta
