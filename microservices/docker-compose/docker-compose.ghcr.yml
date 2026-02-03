@@ -26,18 +26,35 @@ services:
     networks:
       - fins-network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
   consul:
-    image: hashicorp/consul:1.19
+    image: hashicorp/consul:latest
     container_name: consul
     restart: unless-stopped
     ports:
+      - "8300:8300"
       - "8500:8500"
-    command: agent -server -ui -bootstrap-expect=1 -client=0.0.0.0
+      - "8600:8600"
+    command: consul agent -dev -ui -client 0.0.0.0 -log-level=INFO
+    networks:
+      - fins-network
+
+  # CRITICAL: This loads central config into Consul for service discovery
+  consul-config-loader:
+    image: jhipster/consul-config-loader:v0.4.1
+    container_name: consul-config-loader
+    volumes:
+      - ./central-server-config:/config
+    environment:
+      - INIT_SLEEP_SECONDS=5
+      - CONSUL_URL=consul
+      - CONSUL_PORT=8500
+    depends_on:
+      - consul
     networks:
       - fins-network
 
@@ -51,20 +68,21 @@ services:
       - fins-network
 
   kafka:
-    image: confluentinc/cp-kafka:7.6.0
+    image: apache/kafka-native:4.0.0
     container_name: kafka
     restart: unless-stopped
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://localhost:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
     networks:
       - fins-network
 
@@ -84,6 +102,8 @@ services:
     image: ghcr.io/longhongvo23/fins-gateway:latest
     container_name: gateway
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "8080:8080"
     environment:
@@ -93,22 +113,59 @@ services:
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_CLOUD_CONSUL_HOST=consul
       - SPRING_CLOUD_CONSUL_PORT=8500
+      - SPRING_CLOUD_CONSUL_DISCOVERY_ENABLED=true
+      - SPRING_CLOUD_CONSUL_DISCOVERY_PREFER_IP_ADDRESS=true
+      - SPRING_CLOUD_CONSUL_DISCOVERY_REGISTER=true
+      - SPRING_CLOUD_CONSUL_DISCOVERY_INSTANCE_ID=${HOSTNAME:-gateway}
       - SPRING_DATA_MONGODB_URI=mongodb://${GATEWAY_MONGODB_USER}:${GATEWAY_MONGODB_PASSWORD}@mongodb:27017/gateway?authSource=admin&waitQueueMultiple=1000
-      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
       - JHIPSTER_CORS_ALLOWED_ORIGINS=http://localhost:8100,https://localhost:8100,http://localhost:9000,https://localhost:9000,http://localhost:2601,https://localhost:2601,http://localhost:2302,https://localhost:2302,http://localhost:3000,https://localhost:3000,capacitor://localhost,http://localhost,https://localhost
       - JHIPSTER_CORS_ALLOWED_ORIGIN_PATTERNS=http://192.168.*.*:*,https://192.168.*.*:*
+      - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
       - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
       - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
+      # Static Gateway Routes (bypassing Consul discovery for routing)
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_ID=userservice
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_URI=http://userservice:8081
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0=Path=/services/userservice/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_FILTERS_0=StripPrefix=2
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_ID=stockservice
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_URI=http://stockservice:8083
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0=Path=/services/stockservice/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_FILTERS_0=StripPrefix=2
+      - SPRING_CLOUD_GATEWAY_ROUTES_2_ID=newsservice
+      - SPRING_CLOUD_GATEWAY_ROUTES_2_URI=http://newsservice:8084
+      - SPRING_CLOUD_GATEWAY_ROUTES_2_PREDICATES_0=Path=/services/newsservice/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_2_FILTERS_0=StripPrefix=2
+      - SPRING_CLOUD_GATEWAY_ROUTES_3_ID=notificationservice
+      - SPRING_CLOUD_GATEWAY_ROUTES_3_URI=http://notificationservice:8082
+      - SPRING_CLOUD_GATEWAY_ROUTES_3_PREDICATES_0=Path=/services/notificationservice/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_3_FILTERS_0=StripPrefix=2
+      - SPRING_CLOUD_GATEWAY_ROUTES_4_ID=crawlservice
+      - SPRING_CLOUD_GATEWAY_ROUTES_4_URI=http://crawlservice:8085
+      - SPRING_CLOUD_GATEWAY_ROUTES_4_PREDICATES_0=Path=/services/crawlservice/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_4_FILTERS_0=StripPrefix=2
+      - SPRING_CLOUD_GATEWAY_ROUTES_5_ID=aitoolsservice
+      - SPRING_CLOUD_GATEWAY_ROUTES_5_URI=http://aitoolsservice:8087
+      - SPRING_CLOUD_GATEWAY_ROUTES_5_PREDICATES_0=Path=/services/aitoolsservice/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_5_FILTERS_0=StripPrefix=2
+      - SPRING_CLOUD_GATEWAY_ROUTES_6_ID=aiservice
+      - SPRING_CLOUD_GATEWAY_ROUTES_6_URI=http://aiservice:8086
+      - SPRING_CLOUD_GATEWAY_ROUTES_6_PREDICATES_0=Path=/services/aiservice/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_6_FILTERS_0=StripPrefix=2
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/management/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/management/health" ]
       interval: 10s
       timeout: 5s
       retries: 40
       start_period: 60s
     depends_on:
-      - mongodb
-      - consul
-      - kafka
+      mongodb:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      kafka:
+        condition: service_started
     networks:
       - fins-network
 
@@ -116,6 +173,8 @@ services:
     image: ghcr.io/longhongvo23/fins-userservice:latest
     container_name: userservice
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "8081:8081"
     environment:
@@ -126,19 +185,23 @@ services:
       - SPRING_CLOUD_CONSUL_HOST=consul
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${USERSERVICE_MONGODB_USER}:${USERSERVICE_MONGODB_PASSWORD}@mongodb:27017/userservice?authSource=admin&waitQueueMultiple=1000
-      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
       - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
       - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/management/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/management/health" ]
       interval: 10s
       timeout: 5s
       retries: 40
       start_period: 60s
     depends_on:
-      - mongodb
-      - consul
-      - kafka
+      mongodb:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      kafka:
+        condition: service_started
     networks:
       - fins-network
 
@@ -146,6 +209,8 @@ services:
     image: ghcr.io/longhongvo23/fins-stockservice:latest
     container_name: stockservice
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "8083:8083"
     environment:
@@ -156,21 +221,25 @@ services:
       - SPRING_CLOUD_CONSUL_HOST=consul
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${STOCKSERVICE_MONGODB_USER}:${STOCKSERVICE_MONGODB_PASSWORD}@mongodb:27017/stockservice?authSource=admin&waitQueueMultiple=1000
-      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
       - TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}
       - TWELVE_DATA_BASE_URL=${TWELVE_DATA_BASE_URL:-https://api.twelvedata.com}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
+      - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/management/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8083/management/health" ]
       interval: 10s
       timeout: 5s
       retries: 40
       start_period: 60s
     depends_on:
-      - mongodb
-      - consul
-      - kafka
+      mongodb:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      kafka:
+        condition: service_started
     networks:
       - fins-network
 
@@ -178,6 +247,8 @@ services:
     image: ghcr.io/longhongvo23/fins-newsservice:latest
     container_name: newsservice
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "8084:8084"
     environment:
@@ -188,19 +259,23 @@ services:
       - SPRING_CLOUD_CONSUL_HOST=consul
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${NEWSSERVICE_MONGODB_USER}:${NEWSSERVICE_MONGODB_PASSWORD}@mongodb:27017/newsservice?authSource=admin&waitQueueMultiple=1000
-      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
       - MARKETAUX_API_KEY=${MARKETAUX_API_KEY}
       - MARKETAUX_BASE_URL=${MARKETAUX_BASE_URL:-https://api.marketaux.com/v1}
+      - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8084/management/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8084/management/health" ]
       interval: 10s
       timeout: 5s
       retries: 40
       start_period: 60s
     depends_on:
-      - mongodb
-      - consul
-      - kafka
+      mongodb:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      kafka:
+        condition: service_started
     networks:
       - fins-network
 
@@ -208,6 +283,8 @@ services:
     image: ghcr.io/longhongvo23/fins-notificationservice:latest
     container_name: notificationservice
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "8082:8082"
     environment:
@@ -218,19 +295,23 @@ services:
       - SPRING_CLOUD_CONSUL_HOST=consul
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${NOTIFICATIONSERVICE_MONGODB_USER}:${NOTIFICATIONSERVICE_MONGODB_PASSWORD}@mongodb:27017/notificationservice?authSource=admin&waitQueueMultiple=1000
-      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
       - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
       - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8082/management/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8082/management/health" ]
       interval: 10s
       timeout: 5s
       retries: 40
       start_period: 60s
     depends_on:
-      - mongodb
-      - consul
-      - kafka
+      mongodb:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      kafka:
+        condition: service_started
     networks:
       - fins-network
 
@@ -238,6 +319,8 @@ services:
     image: ghcr.io/longhongvo23/fins-crawlservice:latest
     container_name: crawlservice
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "8085:8085"
     environment:
@@ -248,19 +331,50 @@ services:
       - SPRING_CLOUD_CONSUL_HOST=consul
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${CRAWLSERVICE_MONGODB_USER}:${CRAWLSERVICE_MONGODB_PASSWORD}@mongodb:27017/crawlservice?authSource=admin&waitQueueMultiple=1000
-      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
       - MARKETAUX_API_KEY=${MARKETAUX_API_KEY}
       - MARKETAUX_BASE_URL=${MARKETAUX_BASE_URL:-https://api.marketaux.com/v1}
+      - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
+      - APPLICATION_API_TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}
+      - APPLICATION_API_TWELVE_DATA_BASE_URL=${TWELVE_DATA_BASE_URL:-https://api.twelvedata.com}
+      - APPLICATION_API_FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - APPLICATION_API_FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
+      - APPLICATION_API_MARKETAUX_API_KEY=${MARKETAUX_API_KEY}
+      - APPLICATION_API_MARKETAUX_BASE_URL=${MARKETAUX_BASE_URL:-https://api.marketaux.com/v1}
+      - APPLICATION_STOCK_SYMBOLS_0=AAPL
+      - APPLICATION_STOCK_SYMBOLS_1=NVDA
+      - APPLICATION_STOCK_SYMBOLS_2=MSFT
+      - APPLICATION_STOCK_SYMBOLS_3=AMZN
+      - APPLICATION_STOCK_SYMBOLS_4=TSLA
+      - APPLICATION_STOCK_SYMBOLS_5=META
+      - APPLICATION_STOCK_SYMBOLS_6=GOOGL
+      - APPLICATION_STOCK_SERVICE_URL=http://stockservice:8083
+      - APPLICATION_NEWS_SERVICE_URL=http://newsservice:8084
+      - APPLICATION_CRAWL_SCHEDULE_DAILY_QUOTE=0 0 21 * * ?
+      - APPLICATION_CRAWL_SCHEDULE_WEEKLY_RECOMMENDATION=0 0 2 * * MON
+      - APPLICATION_CRAWL_SCHEDULE_WEEKLY_COMPANY_PROFILE=0 0 3 * * MON
+      - APPLICATION_CRAWL_SCHEDULE_DAILY_NEWS=0 0 10,15,21 * * ?
+      - APPLICATION_CRAWL_HISTORICAL_START_DATE=2015-01-01
+      - APPLICATION_CRAWL_HISTORICAL_INTERVAL=1day
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8085/management/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8085/management/health" ]
       interval: 10s
       timeout: 5s
       retries: 40
       start_period: 60s
     depends_on:
-      - mongodb
-      - consul
-      - kafka
+      mongodb:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      kafka:
+        condition: service_started
+      stockservice:
+        condition: service_healthy
+      newsservice:
+        condition: service_healthy
     networks:
       - fins-network
 
@@ -268,6 +382,8 @@ services:
     image: ghcr.io/longhongvo23/fins-aitoolsservice:latest
     container_name: aitoolsservice
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "8087:8087"
     environment:
@@ -278,24 +394,30 @@ services:
       - SPRING_CLOUD_CONSUL_HOST=consul
       - SPRING_CLOUD_CONSUL_PORT=8500
       - SPRING_DATA_MONGODB_URI=mongodb://${AITOOLSSERVICE_MONGODB_USER}:${AITOOLSSERVICE_MONGODB_PASSWORD}@mongodb:27017/aitoolsservice?authSource=admin&waitQueueMultiple=1000
-      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:29092
+      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
       - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
       - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
+      - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL=gemini-2.5-flash
-      - APPLICATION_STOCK_SERVICE_URL=http://stockservice:8082
+      - APPLICATION_STOCK_SERVICE_URL=http://stockservice:8083
       - APPLICATION_FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - APPLICATION_FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8087/management/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8087/management/health" ]
       interval: 10s
       timeout: 5s
       retries: 40
       start_period: 60s
     depends_on:
-      - mongodb
-      - consul
-      - kafka
+      mongodb:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      kafka:
+        condition: service_started
+      stockservice:
+        condition: service_healthy
     networks:
       - fins-network
 
@@ -306,15 +428,34 @@ services:
     image: ghcr.io/longhongvo23/fins-aiservice:latest
     container_name: aiservice
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
-      - "8000:8000"
+      - "8086:8086"
     environment:
-      - MONGODB_URI=mongodb://${AITOOLSSERVICE_MONGODB_USER}:${AITOOLSSERVICE_MONGODB_PASSWORD}@mongodb:27017/aiservice?authSource=admin
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - APP_NAME=aiservice
+      - APP_PORT=8086
+      - MONGODB_URI=mongodb://${STOCKSERVICE_MONGODB_USER}:${STOCKSERVICE_MONGODB_PASSWORD}@mongodb:27017/stockservice?authSource=admin
+      - MONGODB_DATABASE=stockservice
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - SERVICE_DISCOVERY_ENABLED=true
+      - AUTO_PREDICTION_ENABLED=true
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import requests; requests.get('http://localhost:8086/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     depends_on:
-      - mongodb
-      - kafka
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      consul:
+        condition: service_started
     networks:
       - fins-network
 
@@ -325,6 +466,8 @@ services:
     image: ghcr.io/longhongvo23/fins-frontend:latest
     container_name: frontend
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "2302:80"
     environment:
@@ -334,7 +477,7 @@ services:
     networks:
       - fins-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      test: [ "CMD", "curl", "-f", "http://localhost:80" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -386,6 +529,33 @@ services:
       - fins-network
     depends_on:
       - prometheus
+
+  # ==========================================================================
+  # Auto-Deployment: Watchtower
+  # Automatically pulls new images from GHCR and restarts containers
+  # ==========================================================================
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.docker/config.json:/config.json:ro
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_REVIVE_STOPPED=false
+      - WATCHTOWER_ROLLING_RESTART=true
+      - WATCHTOWER_TIMEOUT=60s
+      - WATCHTOWER_NOTIFICATIONS=shoutrrr
+      - WATCHTOWER_NOTIFICATION_URL=
+      - WATCHTOWER_LABEL_ENABLE=true
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    networks:
+      - fins-network
 
 networks:
   fins-network:
