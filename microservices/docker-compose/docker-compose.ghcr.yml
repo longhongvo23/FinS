@@ -120,7 +120,7 @@ services:
       - SPRING_DATA_MONGODB_URI=mongodb://${GATEWAY_MONGODB_USER}:${GATEWAY_MONGODB_PASSWORD}@mongodb:27017/gateway?authSource=admin&waitQueueMultiple=1000
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
       - JHIPSTER_CORS_ALLOWED_ORIGINS=http://localhost:8100,https://localhost:8100,http://localhost:9000,https://localhost:9000,http://localhost:2601,https://localhost:2601,http://localhost:2302,https://localhost:2302,http://localhost:3000,https://localhost:3000,capacitor://localhost,http://localhost,https://localhost
-      - JHIPSTER_CORS_ALLOWED_ORIGIN_PATTERNS=http://192.168.*.*:*,https://192.168.*.*:*
+      - JHIPSTER_CORS_ALLOWED_ORIGIN_PATTERNS=http://192.168.*.*:*,https://192.168.*.*:*,https://*.ngrok-free.app,https://*.ngrok-free.dev,https://*.ngrok.io
       - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
       - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
       - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}

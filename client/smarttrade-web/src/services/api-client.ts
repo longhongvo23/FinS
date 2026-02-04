@@ -4,7 +4,10 @@
  */
 
 // Gateway URL - all microservices are accessed through the gateway
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// In production (Docker), use relative path to go through nginx proxy (same origin = no CORS)
+// In development, use localhost:8080 directly
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD ? '' : 'http://localhost:8080');
 
 // Token management
 const TOKEN_KEY = 'fins_access_token';
