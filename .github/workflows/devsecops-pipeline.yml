@@ -404,3 +404,60 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🐳 Docker Images" >> $GITHUB_STEP_SUMMARY
           echo "Images pushed to: \`ghcr.io/${{ github.repository_owner }}/fins-*\`" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # Stage 12: Deploy to WSL (Self-hosted Runner)
+  # ============================================================================
+  deploy-wsl:
+    name: 🚀 Deploy to WSL
+    runs-on: self-hosted
+    needs: [build-push-images, build-push-frontend, build-push-aiservice]
+    if: github.ref == 'refs/heads/main' && github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Pull latest images
+        working-directory: microservices/docker-compose
+        run: |
+          docker-compose -f docker-compose.ghcr.yml pull
+
+      - name: Deploy services
+        working-directory: microservices/docker-compose
+        run: |
+          docker-compose -f docker-compose.ghcr.yml up -d
+
+      - name: Wait for services to start
+        run: sleep 60
+
+      - name: Health Check - Gateway
+        run: |
+          curl -f http://localhost:8080/management/health || echo "Gateway health check failed"
+        continue-on-error: true
+
+      - name: Health Check - All Services
+        run: |
+          echo "🔍 Checking service health..."
+          services=("gateway:8080" "userservice:8081" "notificationservice:8082" "stockservice:8083" "newsservice:8084" "crawlservice:8085" "aiservice:8086" "aitoolsservice:8087")
+          for service in "${services[@]}"; do
+            name="${service%%:*}"
+            port="${service##*:}"
+            if curl -sf "http://localhost:$port/management/health" > /dev/null 2>&1 || curl -sf "http://localhost:$port/health" > /dev/null 2>&1; then
+              echo "✅ $name is healthy"
+            else
+              echo "⚠️ $name health check failed"
+            fi
+          done
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          docker ps --format "| {{.Names}} | {{.Status}} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📅 Deployed at: $(date)" >> $GITHUB_STEP_SUMMARY

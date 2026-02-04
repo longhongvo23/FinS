@@ -111,3 +111,6 @@ coverage/
 # ===================================================================
 .yo-rc.json
 .jhipster/
+
+# GitHub Actions Self-hosted Runner
+actions-runner/
