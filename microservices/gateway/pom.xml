@@ -76,7 +76,7 @@
         <spotless-maven-plugin.version>2.44.4</spotless-maven-plugin.version>
         <spring-cloud-dependencies.version>2024.0.1</spring-cloud-dependencies.version>
         <spring.profiles.active>dev</spring.profiles.active>
-        <springdoc-openapi-starter-webflux-api.version>2.8.8</springdoc-openapi-starter-webflux-api.version>
+        <springdoc-openapi-starter-webflux-api.version>3.0.1</springdoc-openapi-starter-webflux-api.version>
         <testcontainers.version>1.19.3</testcontainers.version>
     </properties>
 
