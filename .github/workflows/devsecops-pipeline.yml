@@ -420,13 +420,20 @@ jobs:
       - name: Login to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      - name: Sync compose files to local project
+        run: |
+          LOCAL_DIR="/mnt/d/HOC_DAI/DATN2025/FinS/microservices/docker-compose"
+          echo "📂 Syncing docker-compose files to local project..."
+          cp -f ${{ github.workspace }}/microservices/docker-compose/docker-compose.yml "$LOCAL_DIR/docker-compose.yml"
+          echo "✅ Compose files synced"
+
       - name: Pull latest images
-        working-directory: microservices/docker-compose
+        working-directory: /mnt/d/HOC_DAI/DATN2025/FinS/microservices/docker-compose
         run: |
           docker compose pull
 
       - name: Deploy services
-        working-directory: microservices/docker-compose
+        working-directory: /mnt/d/HOC_DAI/DATN2025/FinS/microservices/docker-compose
         run: |
           docker compose up -d
 
