@@ -13,13 +13,9 @@ echo "🚀 Starting FinS Services..."
 echo "============================"
 
 # Check if certificates exist
-if [ ! -f "mongodb-security/certs/ca.crt" ]; then
-    echo "⚠️  TLS certificates not found. Running without TLS..."
-    docker compose up -d
-else
-    echo "✅ TLS certificates found. Running with security enabled..."
-    docker compose -f docker-compose.yml -f docker-compose.security.yml up -d
-fi
+# TLS + Auth already integrated in docker-compose.yml
+echo "✅ Starting FinS with 4-layer security..."
+docker compose up -d
 
 echo ""
 echo "⏳ Waiting for services to start..."

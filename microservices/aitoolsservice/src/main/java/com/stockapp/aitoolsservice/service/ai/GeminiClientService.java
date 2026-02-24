@@ -190,9 +190,12 @@ public class GeminiClientService {
     private boolean shouldFallback(Throwable e) {
         if (e instanceof WebClientResponseException wcre) {
             int status = wcre.getStatusCode().value();
-            // 400 = Bad Request (model doesn't support config), 429 = Rate Limit,
-            // 503 = Service Unavailable, 500 = Server Error, 404 = Model not found
-            return status == 400 || status == 429 || status == 503 || status == 500 || status == 502 || status == 404;
+            // 400 = Bad Request (model doesn't support config), 403 = Forbidden (model
+            // unavailable),
+            // 429 = Rate Limit, 503 = Service Unavailable, 500 = Server Error, 404 = Model
+            // not found
+            return status == 400 || status == 403 || status == 429 || status == 503 || status == 500 || status == 502
+                    || status == 404;
         }
         // Fallback for connection/timeout errors
         return e.getMessage() != null && (e.getMessage().contains("quota") ||

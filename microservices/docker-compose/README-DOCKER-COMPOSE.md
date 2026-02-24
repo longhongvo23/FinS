@@ -1,33 +1,78 @@
-# JHipster generated Docker-Compose configuration
+# FinS Docker Compose
 
-## Usage
+## Cách chạy Server (Ubuntu WSL)
 
-Launch all your infrastructure by running: `docker compose up -d`.
+### Yêu cầu
+- Ubuntu WSL2 với Docker Engine đã cài
+- GHCR login: `echo 'YOUR_TOKEN' | docker login ghcr.io -u longhongvo23 --password-stdin`
+- TLS certificates đã tạo (trong `mongodb-security/certs/`)
 
-## Configured Docker services
+### Chạy nhanh (1 lệnh)
+```bash
+cd /mnt/d/HOC_DAI/DATN2025/FinS/microservices/docker-compose
+docker compose up -d
+```
 
-### Service registry and configuration server:
+### Chạy bằng script (khuyến nghị)
+```bash
+bash /mnt/d/HOC_DAI/DATN2025/FinS/scripts/start-server.sh
+```
 
-- [Consul](http://localhost:8500)
+### Dừng server
+```bash
+docker compose down
+```
 
-### Applications and dependencies:
+---
 
-- gateway (gateway application)
-- gateway's mongodb database
-- userservice (microservice application)
-- userservice's mongodb database
-- notificationservice (microservice application)
-- notificationservice's mongodb database
-- stockservice (microservice application)
-- stockservice's mongodb database
-- newsservice (microservice application)
-- newsservice's mongodb database
-- crawlservice (microservice application)
-- crawlservice's mongodb database
+## Cấu hình
 
-### Additional Services:
+- **File duy nhất:** `docker-compose.yml` — bao gồm tất cả services + 4 lớp bảo mật
+- **Biến môi trường:** `.env`
+- **Certificates:** `mongodb-security/certs/`
 
-- Kafka
-- [Prometheus server](http://localhost:9090)
-- [Prometheus Alertmanager](http://localhost:9093)
-- [Grafana](http://localhost:3000)
+## Services
+
+| Service | Port | URL |
+|---------|------|-----|
+| Frontend | 2302 | http://localhost:2302 |
+| Gateway | 8080 | http://localhost:8080 |
+| UserService | 8081 | |
+| NotificationService | 8082 | |
+| StockService | 8083 | |
+| NewsService | 8084 | |
+| CrawlService | 8085 | |
+| AIService | 8086 | |
+| AIToolsService | 8087 | |
+| Consul | 8500 | http://localhost:8500 |
+| Prometheus | 9090 | http://localhost:9090 |
+| Grafana | 3000 | http://localhost:3000 |
+
+## GitHub Actions Self-Hosted Runner
+
+Runner được cài tại `/mnt/d/HOC_DAI/DATN2025/FinS/actions-runner/`.
+
+### Khởi động runner
+```bash
+cd /mnt/d/HOC_DAI/DATN2025/FinS/actions-runner
+./run.sh
+```
+
+### Cài runner như service (tự khởi động)
+```bash
+cd /mnt/d/HOC_DAI/DATN2025/FinS/actions-runner
+sudo ./svc.sh install
+sudo ./svc.sh start
+```
+
+### Kiểm tra trạng thái runner
+```bash
+sudo ./svc.sh status
+```
+
+## 4 Lớp Bảo Mật MongoDB
+
+1. **Authentication** — Username/password riêng cho mỗi service
+2. **TLS/SSL** — Mã hóa traffic MongoDB (requireTLS)
+3. **Field-Level Encryption** — AES-256-GCM cho fields nhạy cảm (@Encrypted)
+4. **Volume Encryption** — Docker named volumes trên ext4/WSL2

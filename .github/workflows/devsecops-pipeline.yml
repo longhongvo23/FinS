@@ -423,12 +423,12 @@ jobs:
       - name: Pull latest images
         working-directory: microservices/docker-compose
         run: |
-          docker-compose -f docker-compose.ghcr.yml pull
+          docker compose pull
 
       - name: Deploy services
         working-directory: microservices/docker-compose
         run: |
-          docker-compose -f docker-compose.ghcr.yml up -d
+          docker compose up -d
 
       - name: Wait for services to start
         run: sleep 60
