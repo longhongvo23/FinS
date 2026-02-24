@@ -89,6 +89,12 @@ services:
         - --tls
         - --tlsCAFile=/tmp/ca.crt
         - --tlsAllowInvalidCertificates
+        - -u
+        - ${MONGODB_ROOT_USERNAME:-admin}
+        - -p
+        - ${MONGODB_ROOT_PASSWORD:-admin123}
+        - --authenticationDatabase
+        - admin
         - --eval
         - "db.adminCommand('ping')"
       interval: 10s
