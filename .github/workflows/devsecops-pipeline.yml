@@ -453,17 +453,17 @@ jobs:
             openssl genrsa -out ${HOST}.key 2048 2>/dev/null
             openssl req -new -key ${HOST}.key -out ${HOST}.csr \
               -subj "$SUBJ/CN=$HOST" 2>/dev/null
-            cat > ${HOST}.ext << EXTEOF
-          authorityKeyIdentifier=keyid,issuer
-          basicConstraints=CA:FALSE
-          keyUsage=digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment
-          subjectAltName=@alt_names
-          [alt_names]
-          DNS.1=$HOST
-          DNS.2=localhost
-          DNS.3=mongodb
-          IP.1=127.0.0.1
-          EXTEOF
+            cat > ${HOST}.ext <<EXTEOF
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment
+subjectAltName=@alt_names
+[alt_names]
+DNS.1=$HOST
+DNS.2=localhost
+DNS.3=mongodb
+IP.1=127.0.0.1
+EXTEOF
             openssl x509 -req -in ${HOST}.csr -CA ca.crt -CAkey ca.key \
               -CAcreateserial -out ${HOST}.crt -days $DAYS -sha256 -extfile ${HOST}.ext 2>/dev/null
             cat ${HOST}.key ${HOST}.crt > ${HOST}.pem
