@@ -417,36 +417,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-
-      - name: Sync compose files to local project
+      - name: Build Java images locally (Bypass GHCR limits)
         run: |
-          LOCAL_DIR="/mnt/d/HOC_DAI/DATN2025/FinS/microservices/docker-compose"
-          echo "📂 Syncing docker-compose files to local project..."
-          cp -f ${{ github.workspace }}/microservices/docker-compose/docker-compose.yml "$LOCAL_DIR/docker-compose.yml"
-          echo "✅ Compose files synced"
-
-      - name: Build images locally (Bypass GHCR limits)
-        run: |
-          cd /mnt/d/HOC_DAI/DATN2025/FinS
-          chmod +x mvnw
           echo "🏗️ Building Java microservices..."
           services=("gateway" "userservice" "notificationservice" "stockservice" "newsservice" "crawlservice" "aitoolsservice")
           for service in "${services[@]}"; do
-            cd /mnt/d/HOC_DAI/DATN2025/FinS/microservices/$service
-            ../../mvnw compile jib:dockerBuild -Djib.to.image=ghcr.io/${{ github.repository_owner }}/fins-$service:latest -DskipTests -q
+            echo "Building $service..."
+            # Cấp quyền và chạy mvnw NGAY TRONG thư mục của service đó
+            chmod +x microservices/$service/mvnw
+            cd microservices/$service
+            ./mvnw compile jib:dockerBuild -Djib.to.image=ghcr.io/${{ github.repository_owner }}/fins-$service:latest -DskipTests -q
+            # Quay lại thư mục gốc workspace để chuẩn bị cho service tiếp theo
+            cd ${{ github.workspace }}
           done
-          
+
+      - name: Build Frontend locally
+        run: |
           echo "🏗️ Building Frontend..."
-          cd /mnt/d/HOC_DAI/DATN2025/FinS/client/smarttrade-web
+          cd client/smarttrade-web
           docker build -t ghcr.io/${{ github.repository_owner }}/fins-frontend:latest .
-          
+
+      - name: Build AI Service locally
+        run: |
           echo "🏗️ Building AI Service..."
-          cd /mnt/d/HOC_DAI/DATN2025/FinS/microservices/aiservice
+          cd microservices/aiservice
           docker build -t ghcr.io/${{ github.repository_owner }}/fins-aiservice:latest .
 
       - name: Deploy services
-        working-directory: /mnt/d/HOC_DAI/DATN2025/FinS/microservices/docker-compose
+        working-directory: microservices/docker-compose
         run: |
+          echo "🚀 Deploying with Docker Compose..."
           docker compose up -d
 
       - name: Wait for services to start
