@@ -104,20 +104,41 @@ public class AuthResource {
 
                 // Extract base URL from request (support reverse proxies like Ngrok/Nginx)
                 ServerHttpRequest request = exchange.getRequest();
-                String scheme = request.getHeaders().getFirst("X-Forwarded-Proto");
-                if (scheme == null)
-                        scheme = request.getURI().getScheme();
-                String host = request.getHeaders().getFirst("X-Forwarded-Host");
-                if (host == null)
-                        host = request.getHeaders().getFirst("Host");
-                if (host == null) {
-                        host = request.getURI().getHost();
-                        int port = request.getURI().getPort();
-                        if (port != -1 && port != 80 && port != 443) {
-                                host += ":" + port;
+
+                // Use Origin or Referer header to get the frontend's actual URL
+                String origin = request.getHeaders().getFirst("Origin");
+                if (origin == null || origin.isEmpty()) {
+                        String referer = request.getHeaders().getFirst("Referer");
+                        if (referer != null && !referer.isEmpty()) {
+                                try {
+                                        java.net.URI uri = new java.net.URI(referer);
+                                        origin = uri.getScheme() + "://" + uri.getAuthority();
+                                } catch (Exception e) {
+                                        // ignore
+                                }
                         }
                 }
-                final String customBaseUrl = scheme + "://" + host;
+
+                String customBaseUrl;
+                if (origin != null && !origin.isEmpty()) {
+                        customBaseUrl = origin;
+                } else {
+                        // Fallback to API Host if Origin/Referer is not available
+                        String scheme = request.getHeaders().getFirst("X-Forwarded-Proto");
+                        if (scheme == null)
+                                scheme = request.getURI().getScheme();
+                        String host = request.getHeaders().getFirst("X-Forwarded-Host");
+                        if (host == null)
+                                host = request.getHeaders().getFirst("Host");
+                        if (host == null) {
+                                host = request.getURI().getHost();
+                                int port = request.getURI().getPort();
+                                if (port != -1 && port != 80 && port != 443) {
+                                        host += ":" + port;
+                                }
+                        }
+                        customBaseUrl = scheme + "://" + host;
+                }
 
                 // Check if login already exists
                 return appUserService.findByLogin(registerVM.getLogin())
@@ -479,20 +500,41 @@ public class AuthResource {
 
                 // Extract base URL from request (support reverse proxies like Ngrok/Nginx)
                 ServerHttpRequest request = exchange.getRequest();
-                String scheme = request.getHeaders().getFirst("X-Forwarded-Proto");
-                if (scheme == null)
-                        scheme = request.getURI().getScheme();
-                String host = request.getHeaders().getFirst("X-Forwarded-Host");
-                if (host == null)
-                        host = request.getHeaders().getFirst("Host");
-                if (host == null) {
-                        host = request.getURI().getHost();
-                        int port = request.getURI().getPort();
-                        if (port != -1 && port != 80 && port != 443) {
-                                host += ":" + port;
+
+                // Use Origin or Referer header to get the frontend's actual URL
+                String origin = request.getHeaders().getFirst("Origin");
+                if (origin == null || origin.isEmpty()) {
+                        String referer = request.getHeaders().getFirst("Referer");
+                        if (referer != null && !referer.isEmpty()) {
+                                try {
+                                        java.net.URI uri = new java.net.URI(referer);
+                                        origin = uri.getScheme() + "://" + uri.getAuthority();
+                                } catch (Exception e) {
+                                        // ignore
+                                }
                         }
                 }
-                final String customBaseUrl = scheme + "://" + host;
+
+                String customBaseUrl;
+                if (origin != null && !origin.isEmpty()) {
+                        customBaseUrl = origin;
+                } else {
+                        // Fallback to API Host if Origin/Referer is not available
+                        String scheme = request.getHeaders().getFirst("X-Forwarded-Proto");
+                        if (scheme == null)
+                                scheme = request.getURI().getScheme();
+                        String host = request.getHeaders().getFirst("X-Forwarded-Host");
+                        if (host == null)
+                                host = request.getHeaders().getFirst("Host");
+                        if (host == null) {
+                                host = request.getURI().getHost();
+                                int port = request.getURI().getPort();
+                                if (port != -1 && port != 80 && port != 443) {
+                                        host += ":" + port;
+                                }
+                        }
+                        customBaseUrl = scheme + "://" + host;
+                }
 
                 return appUserService.findByEmail(forgotPasswordVM.getEmail().toLowerCase())
                                 .flatMap(user -> {
