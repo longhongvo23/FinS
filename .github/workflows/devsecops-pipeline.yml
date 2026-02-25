@@ -441,8 +441,8 @@ jobs:
           CERT_DIR="${{ github.workspace }}/microservices/docker-compose/mongodb-security/certs"
           mkdir -p "$CERT_DIR"
           cd "$CERT_DIR"
-          # Clear old certificates to avoid permission errors if they were root-owned
-          sudo rm -f * || rm -f *
+          # Clear old certificates using docker to avoid sudo password prompts (files might be root-owned)
+          docker run --rm -v "$CERT_DIR:/certs" alpine sh -c "rm -f /certs/*" || true
           DAYS=3650
           SUBJ="/C=VN/ST=HoChiMinh/L=HoChiMinh/O=StockApp/OU=Security"
           SERVICES="gateway userservice notificationservice stockservice newsservice crawlservice aitoolsservice"
