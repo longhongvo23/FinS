@@ -478,6 +478,7 @@ jobs:
           TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
           cat > .env << ENVEOF
           MONGODB_ROOT_USERNAME=admin
@@ -506,6 +507,7 @@ jobs:
           FINNHUB_BASE_URL=https://finnhub.io/api/v1
           MARKETAUX_API_KEY=${MARKETAUX_API_KEY}
           MARKETAUX_BASE_URL=https://api.marketaux.com/v1
+          NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
           ENVEOF
           echo "✅ Environment file created from GitHub Secrets"
 

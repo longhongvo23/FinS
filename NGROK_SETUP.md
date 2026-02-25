@@ -1,97 +1,266 @@
-# 🌐 Hướng dẫn triển khai FinS với Ngrok
+# 🌐 Hướng dẫn triển khai FinS với Ngrok (Containerized)
 
-## 📋 Tổng quan kiến trúc
+## 📋 Tổng quan kiến trúc MỚI
 
-Hệ thống FinS hiện tại đã được cấu hình để hoạt động với **Ngrok** hoặc bất kỳ reverse proxy nào:
+Hệ thống đã được **containerize hoàn toàn**, không cần chạy script thủ công nữa:
 
 ```
-Internet (Ngrok URL)
+Internet
     ↓
-Ngrok Tunnel
+Ngrok Container (auto-tunnel, Web UI: 4040)
     ↓
-nginx (port 4000) ← scripts/nginx-ngrok.conf
+Nginx-Proxy Container (port 4000)
     ↓
-├── / → frontend:2302 (nginx inside container)
-│   └── /services/* → gateway:8080 (proxied by container nginx)
-├── /gateway/* → gateway:8080 (admin UI)
-└── /management/* → gateway:8080 (health checks)
+├── / → Frontend Container (port 80)
+│   └── /services/* → Gateway:8080 (proxied by frontend nginx)
+├── /gateway/* → Gateway:8080 (admin UI)
+└── /management/* → Gateway:8080 (health checks)
 ```
 
-## ✅ Cách chạy hiện tại (ĐÚNG)
+**✨ Ưu điểm:**
+- ✅ Tất cả chạy trong docker-compose
+- ✅ Workflow tự động deploy ngrok
+- ✅ Không cần chạy script thủ công
+- ✅ Ngrok Web UI để xem URL: `http://localhost:4040`
+- ✅ Tự động restart khi có lỗi
 
-### Bước 1: Khởi động server
+## 🚀 Cách sử dụng MỚI (Cực đơn giản)
+
+### Lần đầu tiên: Setup
+
+#### Bước 1: Dọn dẹp cấu hình cũ (nếu có)
 ```bash
 cd /mnt/d/HOC_DAI/DATN2025/FinS
+bash scripts/cleanup-old-setup.sh
+```
+
+Script này sẽ:
+- Stop nginx system service
+- Remove old configs
+- Stop manual ngrok processes
+- Clean docker containers
+
+#### Bước 2: Thêm NGROK_AUTHTOKEN vào .env
+```bash
+# Edit file .env
+nano microservices/docker-compose/.env
+
+# Thêm dòng này (lấy token từ https://dashboard.ngrok.com)
+NGROK_AUTHTOKEN=your_ngrok_token_here
+```
+
+#### Bước 3: Khởi động tất cả
+```bash
 bash scripts/start-server.sh
 ```
 
-Script này sẽ:
-- ✅ Start Docker
-- ✅ Generate TLS certificates
-- ✅ Pull Docker images từ GHCR
-- ✅ Start tất cả services với docker-compose
+**Xong!** Tất cả services bao gồm ngrok đã chạy tự động.
 
-### Bước 2: Chạy Ngrok
+### Xem Ngrok URL
 
-**Cách 1: Qua nginx proxy (Port 4000) - KHUYÊN DÙNG**
+Mở trình duyệt:
+```
+http://localhost:4040
+```
+
+Hoặc qua terminal:
 ```bash
-# Terminal 1: Start nginx proxy
-bash scripts/start-ngrok.sh
+curl http://localhost:4040/api/tunnels
 ```
 
-Script này sẽ:
-- Start nginx trên port 4000
-- Proxy traffic từ port 4000 tới frontend (2302) và gateway (8080)
-- Start ngrok tunnel tới port 4000
+**Tất cả đã tự động!** Không cần chạy `start-ngrok.sh` nữa!
 
-**Cách 2: Trực tiếp tới frontend (Port 80)**
+## 🔄 Workflow tự động hoàn toàn
+
+### Khi bạn sửa code và push
+
+```bash  
+git add .
+git commit -m "feat: update something"
+git push origin main
+```
+
+**GitHub Actions tự động:**
+1. ✅ Security scans
+2. ✅ Build all Docker images
+3. ✅ Push to GHCR
+4. ✅ Self-hosted runner deploy
+5. ✅ Pull new images
+6. ✅ Restart ALL containers (including nginx-proxy and ngrok)
+7. ✅ Health checks
+
+**Bạn KHÔNG CẦN làm gì!** Ngrok tự động restart và tạo tunnel mới.
+
+## 🎯 So sánh: Cũ vs Mới
+
+| Tiêu chí | Cũ (Thủ công) | Mới (Containerized) |
+|----------|---------------|---------------------|
+| **Start server** | `bash start-server.sh` | `bash start-server.sh` |
+| **Start ngrok** | `bash start-ngrok.sh` (riêng terminal) | ✅ Tự động trong docker-compose |
+| **Khi deploy** | Phải restart ngrok thủ công | ✅ Tự động restart |
+| **Port conflict** | Dễ xảy ra (80, 4000) | ✅ Không xung đột |
+| **Ngrok URL** | Phải xem trong terminal | ✅ Web UI: localhost:4040 |
+| **Monitoring** | Khó | ✅ Dễ (logs, health checks) |
+
+## 📊 Kiểm tra hệ thống
+
+### Xem tất cả containers
 ```bash
-# Nếu muốn ngrok trực tiếp
-ngrok http 80
+cd microservices/docker-compose
+docker compose ps
 ```
 
-> ⚠️ **Lưu ý:** Với cách 2, bạn cần expose port 80 trong docker-compose (đã cấu hình).
+Bạn sẽ thấy:
+- ✅ `nginx-proxy` - Public entry point
+- ✅ `ngrok` - Internet tunnel
+- ✅ `frontend` - React app
+- ✅ `gateway` - API gateway
+- ✅ Tất cả microservices khác
 
-## 🐛 Vấn đề cũ và cách fix
+### Xem logs
+```bash
+# Ngrok logs (để xem URL)
+docker logs ngrok
 
-### ❌ Vấn đề: Bạn bè không đăng nhập được
+# Nginx-proxy logs
+docker logs nginx-proxy
 
-**Nguyên nhân:** 
-- File `.env.production` hardcode IP LAN: `VITE_API_URL=http://192.168.1.218:8080`
-- Khi build frontend, code JavaScript được compile với URL cố định này
-- Khi bạn bè truy cập qua ngrok, frontend vẫn cố gọi API tới `192.168.1.218` (không accessible từ internet)
-
-**Giải pháp đã áp dụng:**
-```env
-# File: client/smarttrade-web/.env.production
-VITE_API_URL=
-VITE_AI_SERVICE_URL=
+# Tất cả logs
+docker compose logs -f
 ```
 
-✅ Giờ frontend sẽ:
-- Gọi API qua relative path: `/services/userservice/api/...`
-- Nginx trong container frontend sẽ proxy tới `gateway:8080`
-- Hoạt động với mọi domain (localhost, ngrok, cloudflare)
+### Ngrok Web UI
+```
+http://localhost:4040
+```
+
+Ở đây bạn thấy:
+- 🌐 Ngrok public URL
+- 📊 Traffic statistics
+- 🔍 Request/response inspector
+
+## 🛠️ Troubleshooting MỚI
+
+### Ngrok không có URL
+```bash
+# Check ngrok container
+docker logs ngrok
+
+# Thường do thiếu NGROK_AUTHTOKEN
+nano microservices/docker-compose/.env
+# Thêm: NGROK_AUTHTOKEN=your_token
+```
+
+### Restart ngrok để lấy URL mới
+```bash
+cd microservices/docker-compose
+docker compose restart ngrok
+
+# Xem URL mới
+docker logs ngrok | grep "url="
+```
+
+### Services không healthy
+```bash
+# Restart all
+docker compose restart
+
+# Hoặc rebuild
+docker compose up -d --build nginx-proxy
+```
+
+## 🐛 Vấn đề cũ đã được fix
+
+### ❌ Vấn đề 1: Bạn bè không đăng nhập được
+**Nguyên nhân:** Frontend hardcode IP LAN  
+**Giải pháp:** ✅ Dùng relative path
+
+### ❌ Vấn đề 2: Phải chạy ngrok thủ công
+**Nguyên nhân:** Ngrok ở ngoài docker-compose  
+**Giải pháp:** ✅ Containerize ngrok
+
+### ❌ Vấn đề 3: Port conflict (80 bị chiếm)
+**Nguyên nhân:** Nginx system vs container  
+**Giải pháp:** ✅ Nginx-proxy container (port 4000)
+
+### ❌ Vấn đề 4: Khi deploy phải restart ngrok
+**Nguyên nhân:** Ngrok không trong docker-compose  
+**Giải pháp:** ✅ Workflow tự động restart ngrok
+
+## 🔐 GitHub Secrets cần thêm
+
+Vào GitHub repo → Settings → Secrets → Add:
+
+```
+NGROK_AUTHTOKEN = your_ngrok_authtoken_here
+```
+
+Workflow sẽ tự động inject vào container.
+
+## 📚 Files đã thay đổi
+
+| File | Thay đổi |
+|------|----------|
+| `docker-compose.yml` | + nginx-proxy container, + ngrok container |
+| `nginx-proxy.conf` | Config mới cho containerized nginx |
+| `.env` | + NGROK_AUTHTOKEN |
+| `.github/workflows/devsecops-pipeline.yml` | + NGROK_AUTHTOKEN injection |
+| `scripts/cleanup-old-setup.sh` | Script dọn dẹp cấu hình cũ |
+| `NGROK_SETUP.md` | Hướng dẫn mới |
+
+## 🎯 Kết luận
+
+**Hệ thống mới:**
+- ✅ 100% containerized
+- ✅ Zero manual intervention
+- ✅ Auto-deploy với CI/CD
+- ✅ Clean architecture
+- ✅ Easy monitoring
+
+**Bạn chỉ cần:**
+1. Chạy `bash scripts/start-server.sh` lần đầu
+2. Mọi lần sau chỉ push code, hệ thống tự cập nhật!
+
+**Không còn:**
+- ❌ `start-ngrok.sh` thủ công
+- ❌ Nginx system service
+- ❌ Port conflicts
+- ❌ Manual restarts
+
+**Khuyến nghị tiếp theo:**
+- Nếu muốn domain cố định: Dùng **Cloudflare Tunnel** (miễn phí)
+- Nếu muốn ngrok static domain: Upgrade ngrok paid ($8/tháng)
+- Production: Deploy lên VPS/Cloud với domain thật
 
 ## 🔄 Sau khi sửa code
 
-### Rebuild frontend image
+### Tự động hoàn toàn (Khuyên dùng)
 ```bash
-cd client/smarttrade-web
-npm run build
-
-# Build Docker image
-docker build -t ghcr.io/longhongvo23/fins-frontend:latest .
-
-# Hoặc push code lên GitHub, workflow tự build và deploy
+git add .
+git commit -m "feat: update feature"
+git push origin main
 ```
 
-### Hoặc đợi CI/CD tự động
-Khi push code lên GitHub:
-1. Workflow `.github/workflows/devsecops-pipeline.yml` chạy
-2. Build Docker images mới
-3. Push lên GHCR
-4. Self-hosted runner tự động pull và deploy
+GitHub Actions tự động:
+1. Build Docker images mới
+2. Push to GHCR
+3. Self-hosted runner pull và deploy
+4. Restart tất cả containers (bao gồm ngrok)
+
+**Bạn không cần làm gì thêm!**
+
+### Manual (nếu cần test local)
+```bash
+cd microservices/docker-compose
+
+# Rebuild một service
+docker compose up -d --build frontend
+
+# Hoặc rebuild tất cả
+docker compose up -d --build
+
+# Ngrok tự động kết nối lại
+```
 
 ## 🌐 URL cố định (Static Domain)
 
@@ -108,7 +277,14 @@ ngrok http --domain=fins-app.ngrok-free.app 4000
 
 ### Giải pháp 2: Cloudflare Tunnel (MIỄN PHÍ - KHUYÊN DÙNG)
 
-**Yêu cầu:** Domain riêng (~$1-2/năm)
+**Ưu điểm hơn ngrok:**
+- ✅ Miễn phí hoàn toàn
+- ✅ Domain cố định (fins.yourdomain.com)
+- ✅ HTTPS tự động
+- ✅ DDoS protection
+- ✅ Không giới hạn bandwidth
+
+**Yêu cầu:** Domain riêng (~$1-2/năm từ Namecheap, Porkbun)
 
 ```bash
 # 1. Cài Cloudflare Tunnel
@@ -121,131 +297,204 @@ cloudflared tunnel login
 # 3. Tạo tunnel
 cloudflared tunnel create fins
 
-# 4. Tạo config (xem mẫu: scripts/cloudflare-tunnel-config.example.yml)
+# 4. Config
 nano ~/.cloudflared/config.yml
 ```
 
-**Config mẫu:**
+**Config:**
 ```yaml
 tunnel: YOUR_TUNNEL_ID
 credentials-file: /home/YOUR_USERNAME/.cloudflared/YOUR_TUNNEL_ID.json
 
 ingress:
   - hostname: fins.yourdomain.com
-    service: http://localhost:4000  # Nginx proxy
+    service: http://localhost:4000  # Point to nginx-proxy
   - service: http_status:404
 ```
 
 ```bash
-# 5. Chạy tunnel
-cloudflared tunnel run fins
+# 5. Run as service
+sudo cloudflared service install
+sudo systemctl start cloudflared
 ```
 
-**Ưu điểm Cloudflare Tunnel:**
-- ✅ Miễn phí hoàn toàn
-- ✅ Domain cố định (fins.yourdomain.com)
-- ✅ HTTPS tự động
-- ✅ DDoS protection
-- ✅ Traffic qua CDN của Cloudflare
+> 💡 **Lưu ý:** Cloudflare Tunnel chạy **song song** với ngrok container. Bạn có thể dùng cả hai!
 
-## 📝 Kiểm tra hệ thống
+## 🔧 Advanced: Ngrok như một service (systemd)
 
-### Kiểm tra services đang chạy
+Nếu muốn ngrok tự động start khi server reboot:
+
+```bash
+# Không cần! Docker compose đã có restart: unless-stopped
+# Ngrok container tự động restart khi server reboot
+```
+
+Nhưng nếu muốn Cloudflare Tunnel tự động:
+```bash
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+```
+
+## 📝 Kiểm tra hệ thống (Updated)
+
+### Xem tất cả services
 ```bash
 cd microservices/docker-compose
 docker compose ps
 ```
 
-### Kiểm tra health
+### Xem ngrok URL
+**Web UI (Khuyên dùng):**
+```
+http://localhost:4040
+```
+
+**Terminal:**
+```bash
+docker logs ngrok | grep "url="
+# Hoặc
+curl -s http://localhost:4040/api/tunnels | jq '.tunnels[0].public_url'
+```
+
+### Health checks
 ```bash
 # Gateway
 curl http://localhost:8080/management/health
 
-# Frontend
-curl http://localhost:2302/health
+# Frontend (qua nginx-proxy)
+curl http://localhost:4000/
 
 # All services
-bash scripts/start-server.sh  # Check output
+docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 ```
 
 ### Xem logs
 ```bash
-cd microservices/docker-compose
-
-# Tất cả services
+# Tất cả
 docker compose logs -f
 
-# Một service cụ thể
-docker compose logs -f gateway
-docker compose logs -f frontend
+# Chỉ ngrok
+docker logs -f ngrok
+
+# Chỉ nginx-proxy
+docker logs -f nginx-proxy
+
+# Multiple services
+docker compose logs -f ngrok nginx-proxy gateway frontend
 ```
+
+## 🔧 Troubleshooting (Updated)
 
 ## 🚀 Quy trình deploy production
 
-### Phát triển local
-1. Code trên máy local
-2. Test với `npm run dev` hoặc `docker compose up`
-3. Commit code
+### Lần đầu tiên
+1. Setup GitHub Secrets (NGROK_AUTHTOKEN + others)
+2. Config self-hosted runner
+3. Push code → Tự động deploy
 
-### Deploy tự động
+### Mỗi lần sửa code
 ```bash
 git add .
-git commit -m "feat: update frontend config for ngrok"
+git commit -m "feat: new feature"
 git push origin main
 ```
 
-GitHub Actions sẽ:
-1. ✅ Run security scans (secret detection, SAST, dependency scan)
+**Workflow tự động:**
+1. ✅ Security scans (secret detection, SAST, SCA)
 2. ✅ Build all services
 3. ✅ Run tests
 4. ✅ Build & push Docker images to GHCR
-5. ✅ Self-hosted runner tự động pull images mới
+5. ✅ Self-hosted runner pulls images
 6. ✅ Generate TLS certificates
-7. ✅ Deploy với docker-compose
-8. ✅ Health check
+7. ✅ Create .env with secrets
+8. ✅ Deploy với docker-compose (ALL services including ngrok)
+9. ✅ Health checks
+10. ✅ Done! Ngrok URL tự động available tại localhost:4040
 
-### Verify deployment
+### Verify
 ```bash
 # Trên server
 docker ps  # Xem containers
+docker logs ngrok  # Xem ngrok URL
 
 # Test local
 curl http://localhost:8080/management/health
-curl http://localhost:2302/
+curl http://localhost:4040/api/tunnels  # Ngrok API
 
-# Test qua ngrok
-bash scripts/start-ngrok.sh
-# Mở URL ngrok trong browser
+# Test qua internet
+# Mở localhost:4040 để lấy URL, share với bạn bè
 ```
 
-## 🔧 Troubleshooting
+**Hoàn toàn tự động! Không cần chạy script nào!**
 
-### Frontend không gọi được API
+## 🔧 Troubleshooting (Updated)
+
+### Ngrok container không có URL
 ```bash
-# Check nginx trong frontend container
+# Check logs
+docker logs ngrok
+
+# Lỗi thường gặp: "authentication failed"
+# → Kiểm tra NGROK_AUTHTOKEN trong .env
+nano microservices/docker-compose/.env
+
+# Restart ngrok
+docker compose restart ngrok
+```
+
+### Ngrok muốn URL mới
+```bash
+# Simple restart
+docker compose restart ngrok
+
+# Xem URL mới
+sleep 5 && curl http://localhost:4040/api/tunnels
+```
+
+### Frontend không gọi được API qua internet
+```bash
+# Check nginx-proxy
+docker logs nginx-proxy
+
+# Check frontend nginx config
 docker exec -it frontend cat /etc/nginx/nginx.conf
 
-# Check logs
-docker logs frontend
+# Test connectivity
+docker exec -it nginx-proxy wget -O- http://gateway:8080/management/health
 ```
 
-### Ngrok không kết nối
+### Services không healthy sau deploy
 ```bash
-# Check ngrok auth token
-ngrok config check
+# Xem logs
+docker compose logs --tail=100 gateway
 
-# Add token
-ngrok config add-authtoken YOUR_TOKEN
-```
-
-### Services không healthy
-```bash
 # Restart specific service
-cd microservices/docker-compose
 docker compose restart gateway
 
 # Rebuild and restart
 docker compose up -d --build gateway
+```
+
+### Port already allocated
+```bash
+# Ngrok container đã chạy cấu hình cũ
+bash scripts/cleanup-old-setup.sh
+
+# Hoặc stop tất cả
+docker compose down --remove-orphans
+docker ps -a  # Check no orphan containers
+```
+
+### Workflow deploy failed
+```bash
+# Check GitHub Actions logs
+# Thường do:
+# 1. Thiếu GitHub Secrets (NGROK_AUTHTOKEN, etc.)
+# 2. Self-hosted runner offline
+# 3. Build errors
+
+# Fix secrets: GitHub → Settings → Secrets → Add
+# Fix runner: Restart runner on WSL
 ```
 
 ## 📚 Tài liệu liên quan
