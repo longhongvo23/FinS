@@ -98,8 +98,26 @@ public class AuthResource {
                         @ApiResponse(responseCode = "400", description = "Invalid registration data or user already exists"),
                         @ApiResponse(responseCode = "500", description = "Internal server error")
         })
-        public Mono<ResponseEntity<MessageResponseVM>> registerUser(@Valid @RequestBody RegisterVM registerVM) {
+        public Mono<ResponseEntity<MessageResponseVM>> registerUser(@Valid @RequestBody RegisterVM registerVM,
+                        ServerWebExchange exchange) {
                 LOG.debug("REST request to register user: {}", registerVM.getLogin());
+
+                // Extract base URL from request (support reverse proxies like Ngrok/Nginx)
+                ServerHttpRequest request = exchange.getRequest();
+                String scheme = request.getHeaders().getFirst("X-Forwarded-Proto");
+                if (scheme == null)
+                        scheme = request.getURI().getScheme();
+                String host = request.getHeaders().getFirst("X-Forwarded-Host");
+                if (host == null)
+                        host = request.getHeaders().getFirst("Host");
+                if (host == null) {
+                        host = request.getURI().getHost();
+                        int port = request.getURI().getPort();
+                        if (port != -1 && port != 80 && port != 443) {
+                                host += ":" + port;
+                        }
+                }
+                final String customBaseUrl = scheme + "://" + host;
 
                 // Check if login already exists
                 return appUserService.findByLogin(registerVM.getLogin())
@@ -149,7 +167,8 @@ public class AuthResource {
                                                                                 // Send activation email
                                                                                 return mailService
                                                                                                 .sendActivationEmail(
-                                                                                                                user)
+                                                                                                                user,
+                                                                                                                customBaseUrl)
                                                                                                 .thenReturn(user);
                                                                         })
                                                                         .map(user -> ResponseEntity
@@ -455,8 +474,25 @@ public class AuthResource {
                         @ApiResponse(responseCode = "200", description = "Password reset email sent (if email exists)")
         })
         public Mono<ResponseEntity<MessageResponseVM>> forgotPassword(
-                        @Valid @RequestBody ForgotPasswordVM forgotPasswordVM) {
+                        @Valid @RequestBody ForgotPasswordVM forgotPasswordVM, ServerWebExchange exchange) {
                 LOG.debug("REST request for password reset: {}", forgotPasswordVM.getEmail());
+
+                // Extract base URL from request (support reverse proxies like Ngrok/Nginx)
+                ServerHttpRequest request = exchange.getRequest();
+                String scheme = request.getHeaders().getFirst("X-Forwarded-Proto");
+                if (scheme == null)
+                        scheme = request.getURI().getScheme();
+                String host = request.getHeaders().getFirst("X-Forwarded-Host");
+                if (host == null)
+                        host = request.getHeaders().getFirst("Host");
+                if (host == null) {
+                        host = request.getURI().getHost();
+                        int port = request.getURI().getPort();
+                        if (port != -1 && port != 80 && port != 443) {
+                                host += ":" + port;
+                        }
+                }
+                final String customBaseUrl = scheme + "://" + host;
 
                 return appUserService.findByEmail(forgotPasswordVM.getEmail().toLowerCase())
                                 .flatMap(user -> {
@@ -466,17 +502,19 @@ public class AuthResource {
                                         user.setPasswordResetTokenExpiry(Instant.now().plus(1, ChronoUnit.HOURS));
 
                                         return appUserService.update(user)
-                                                        .doOnSuccess(updatedUser -> {
+                                                        .flatMap(updatedUser -> {
                                                                 LOG.info("Password reset token generated for user: {}",
                                                                                 updatedUser.getLogin());
-                                                                // TODO: Send password reset email
-                                                                // emailService.sendPasswordResetEmail(user.getEmail(),
-                                                                // resetToken);
+                                                                // Send password reset email
+                                                                return mailService
+                                                                                .sendPasswordResetMail(updatedUser,
+                                                                                                customBaseUrl)
+                                                                                .thenReturn(updatedUser);
                                                         });
                                 })
-                                .then(Mono.just(ResponseEntity.ok(
+                                .map(user -> ResponseEntity.ok(
                                                 new MessageResponseVM(
-                                                                "If your email exists, you will receive a password reset link shortly."))))
+                                                                "If your email exists, you will receive a password reset link shortly.")))
                                 .defaultIfEmpty(ResponseEntity.ok(
                                                 new MessageResponseVM(
                                                                 "If your email exists, you will receive a password reset link shortly.")));

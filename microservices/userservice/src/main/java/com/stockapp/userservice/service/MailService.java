@@ -47,7 +47,8 @@ public class MailService {
     /**
      * Send email from template - blocking method.
      */
-    private void sendEmailFromTemplateBlocking(AppUserDTO user, String templateName, String subject) {
+    private void sendEmailFromTemplateBlocking(AppUserDTO user, String templateName, String subject,
+            String customBaseUrl) {
         if (user.getEmail() == null) {
             LOG.warn("Email doesn't exist for user '{}'", user.getLogin());
             return;
@@ -56,7 +57,7 @@ public class MailService {
             Locale locale = Locale.forLanguageTag("en");
             Context context = new Context(locale);
             context.setVariable(USER, user);
-            context.setVariable(BASE_URL, baseUrl);
+            context.setVariable(BASE_URL, customBaseUrl != null ? customBaseUrl : baseUrl);
             String content = templateEngine.process(templateName, context);
             sendEmailBlocking(user.getEmail(), subject, content, false, true);
         } catch (Exception e) {
@@ -88,30 +89,38 @@ public class MailService {
     /**
      * Send activation email.
      */
-    public Mono<Void> sendActivationEmail(AppUserDTO user) {
+    public Mono<Void> sendActivationEmail(AppUserDTO user, String customBaseUrl) {
         return Mono.fromRunnable(() -> {
             LOG.info("Sending activation email to '{}'", user.getEmail());
-            sendEmailFromTemplateBlocking(user, "mail/activationEmail", "Kích hoạt tài khoản - SmartTrade AI");
+            sendEmailFromTemplateBlocking(user, "mail/activationEmail", "Kích hoạt tài khoản - SmartTrade AI",
+                    customBaseUrl);
         }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
+    // Kept for backwards compatibility
+    public Mono<Void> sendActivationEmail(AppUserDTO user) {
+        return sendActivationEmail(user, null);
     }
 
     /**
      * Send creation email.
      */
-    public Mono<Void> sendCreationEmail(AppUserDTO user) {
+    public Mono<Void> sendCreationEmail(AppUserDTO user, String customBaseUrl) {
         return Mono.fromRunnable(() -> {
             LOG.info("Sending creation email to '{}'", user.getEmail());
-            sendEmailFromTemplateBlocking(user, "mail/creationEmail", "Tài khoản đã được tạo - SmartTrade AI");
+            sendEmailFromTemplateBlocking(user, "mail/creationEmail", "Tài khoản đã được tạo - SmartTrade AI",
+                    customBaseUrl);
         }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 
     /**
      * Send password reset email.
      */
-    public Mono<Void> sendPasswordResetMail(AppUserDTO user) {
+    public Mono<Void> sendPasswordResetMail(AppUserDTO user, String customBaseUrl) {
         return Mono.fromRunnable(() -> {
             LOG.info("Sending password reset email to '{}', token: {}", user.getEmail(), user.getPasswordResetToken());
-            sendEmailFromTemplateBlocking(user, "mail/passwordResetEmail", "Đặt lại mật khẩu - SmartTrade AI");
+            sendEmailFromTemplateBlocking(user, "mail/passwordResetEmail", "Đặt lại mật khẩu - SmartTrade AI",
+                    customBaseUrl);
         }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 
