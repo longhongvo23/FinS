@@ -473,8 +473,9 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "2302:80"
-    environment:
-      - VITE_API_URL=http://gateway:8080
+      - "80:80"  # Exposed for ngrok http 80
+    # No VITE_API_URL needed - frontend uses relative paths
+    # Nginx inside container proxies /services/* to gateway:8080
     depends_on:
       - gateway
     networks:
