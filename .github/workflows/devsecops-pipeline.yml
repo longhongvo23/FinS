@@ -425,10 +425,24 @@ jobs:
           cp -f ${{ github.workspace }}/microservices/docker-compose/docker-compose.yml "$LOCAL_DIR/docker-compose.yml"
           echo "✅ Compose files synced"
 
-      - name: Pull latest images
-        working-directory: /mnt/d/HOC_DAI/DATN2025/FinS/microservices/docker-compose
+      - name: Build images locally (Bypass GHCR limits)
         run: |
-          docker compose pull
+          cd /mnt/d/HOC_DAI/DATN2025/FinS
+          chmod +x mvnw
+          echo "🏗️ Building Java microservices..."
+          services=("gateway" "userservice" "notificationservice" "stockservice" "newsservice" "crawlservice" "aitoolsservice")
+          for service in "${services[@]}"; do
+            cd /mnt/d/HOC_DAI/DATN2025/FinS/microservices/$service
+            ../../mvnw compile jib:dockerBuild -Djib.to.image=ghcr.io/${{ github.repository_owner }}/fins-$service:latest -DskipTests -q
+          done
+          
+          echo "🏗️ Building Frontend..."
+          cd /mnt/d/HOC_DAI/DATN2025/FinS/client/smarttrade-web
+          docker build -t ghcr.io/${{ github.repository_owner }}/fins-frontend:latest .
+          
+          echo "🏗️ Building AI Service..."
+          cd /mnt/d/HOC_DAI/DATN2025/FinS/microservices/aiservice
+          docker build -t ghcr.io/${{ github.repository_owner }}/fins-aiservice:latest .
 
       - name: Deploy services
         working-directory: /mnt/d/HOC_DAI/DATN2025/FinS/microservices/docker-compose
