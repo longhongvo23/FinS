@@ -58,19 +58,69 @@ bash scripts/start-server.sh
 
 ### Xem Ngrok URL
 
-Mở trình duyệt:
+**Cách 1: Web UI (Đơn giản nhất)**
 ```
 http://localhost:4040
 ```
 
-Hoặc qua terminal:
+**Cách 2: Script tự động**
+```bash
+# Windows
+scripts\get-ngrok-url.bat
+
+# Linux/Mac
+bash scripts/get-ngrok-url.sh
+```
+
+**Cách 3: API**
 ```bash
 curl http://localhost:4040/api/tunnels
 ```
 
+⚠️ **Lưu ý quan trọng về Free URLs:**
+- Free ngrok URLs thay đổi mỗi khi restart container
+- URL có dạng: `https://xxxx-xxx-xxx-xxx-xxx.ngrok-free.app`
+- Để có URL cố định, xem phần "Static Domains" bên dưới
+
 **Tất cả đã tự động!** Không cần chạy `start-ngrok.sh` nữa!
 
-## 🔄 Workflow tự động hoàn toàn
+## � Static Domains (URL Cố định)
+
+### Vấn đề với Free URLs
+
+Free ngrok URLs thay đổi mỗi khi restart:
+- Restart container → URL mới
+- Server reboot → URL mới
+- Không thể share URL cố định cho bạn bè
+
+### Giải pháp: Ngrok Static Domains
+
+**Option 1: Ngrok Paid Plan** ($10/month)
+1. Upgrade tài khoản: https://dashboard.ngrok.com/billing
+2. Tạo static domain: https://dashboard.ngrok.com/domains
+3. Update docker-compose.yml:
+
+```yaml
+ngrok:
+  image: ngrok/ngrok:latest
+  command: ["http", "--domain=your-domain.ngrok.app", "nginx-proxy:4000"]
+  environment:
+    - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+```
+
+**Option 2: Cloudflare Tunnel** (Free)
+- Tương tự ngrok nhưng miễn phí
+- Setup: See `scripts/cloudflare-tunnel-config.example.yml`
+
+**Option 3: VPS + Reverse SSH Tunnel** (Free nếu có VPS)
+```bash
+# From WSL to VPS
+ssh -R 4000:localhost:4000 user@your-vps.com
+```
+
+Recommendation: Nếu dùng production, nên dùng Cloudflare Tunnel hoặc VPS riêng.
+
+## �🔄 Workflow tự động hoàn toàn
 
 ### Khi bạn sửa code và push
 
