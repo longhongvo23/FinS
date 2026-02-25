@@ -41,7 +41,14 @@ class ApiClient {
     }
 
     private buildUrl(endpoint: string, params?: Record<string, string | number | boolean | undefined>): string {
-        const url = new URL(`${this.baseUrl}${endpoint}`);
+        // If baseUrl is relative (starts with /), use window.location.origin as base
+        // If baseUrl is empty, default to origin
+        const base = (this.baseUrl && this.baseUrl.startsWith('http'))
+            ? this.baseUrl
+            : (window.location.origin + (this.baseUrl || ''));
+
+        // Construct URL safely. Note: new URL(endpoint, base) handles leading slashes in endpoint
+        const url = new URL(endpoint.startsWith('/') ? endpoint : `/${endpoint}`, base);
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
                 if (value !== undefined) {

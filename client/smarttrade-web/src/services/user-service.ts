@@ -76,7 +76,11 @@ class UserService {
         const formData = new FormData();
         formData.append('file', file);
 
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const rawBaseUrl = import.meta.env.VITE_API_URL || '';
+        const baseUrl = (rawBaseUrl && rawBaseUrl.startsWith('http'))
+            ? rawBaseUrl
+            : (window.location.origin + (rawBaseUrl || ''));
+
         const response = await fetch(`${baseUrl}/services/userservice/api/public/users/me/avatar`, {
             method: 'POST',
             headers: {
