@@ -83,7 +83,7 @@ services:
     networks:
       - fins-network
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
+      test: ["CMD", "mongosh", "--tls", "--tlsCAFile", "/tmp/ca.crt", "--tlsAllowInvalidCertificates", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
       interval: 15s
       timeout: 10s
       retries: 5
