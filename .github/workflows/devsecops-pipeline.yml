@@ -417,31 +417,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Java images locally (Bypass GHCR limits)
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Docker images from GHCR
         run: |
-          echo "🏗️ Building Java microservices..."
-          services=("gateway" "userservice" "notificationservice" "stockservice" "newsservice" "crawlservice" "aitoolsservice")
+          echo "📥 Pulling pre-built images from GHCR..."
+          services=("gateway" "userservice" "notificationservice" "stockservice" "newsservice" "crawlservice" "aitoolsservice" "aiservice" "frontend")
           for service in "${services[@]}"; do
-            echo "Building $service..."
-            # Cấp quyền và chạy mvnw NGAY TRONG thư mục của service đó
-            chmod +x microservices/$service/mvnw
-            cd microservices/$service
-            ./mvnw compile jib:dockerBuild -Djib.to.image=ghcr.io/${{ github.repository_owner }}/fins-$service:latest -DskipTests -q
-            # Quay lại thư mục gốc workspace để chuẩn bị cho service tiếp theo
-            cd ${{ github.workspace }}
+            echo "Pulling fins-$service..."
+            docker pull ghcr.io/${{ github.repository_owner }}/fins-$service:latest || echo "⚠️ Could not pull $service, will use cached image"
           done
-
-      - name: Build Frontend locally
-        run: |
-          echo "🏗️ Building Frontend..."
-          cd client/smarttrade-web
-          docker build -t ghcr.io/${{ github.repository_owner }}/fins-frontend:latest .
-
-      - name: Build AI Service locally
-        run: |
-          echo "🏗️ Building AI Service..."
-          cd microservices/aiservice
-          docker build -t ghcr.io/${{ github.repository_owner }}/fins-aiservice:latest .
+          echo "✅ Images ready for deployment"
 
       - name: Generate MongoDB TLS Certificates
         run: |
