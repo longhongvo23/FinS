@@ -396,7 +396,7 @@ services:
       - APPLICATION_FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - APPLICATION_FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8087/management/health" ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8086/health').read()"]
       interval: 10s
       timeout: 5s
       retries: 40
@@ -544,10 +544,11 @@ services:
     networks:
       - fins-network
     healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:4000" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:4000" ]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
 
   # ==========================================================================
   # Ngrok Tunnel - Exposes nginx-proxy to internet
