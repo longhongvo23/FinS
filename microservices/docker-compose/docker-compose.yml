@@ -83,24 +83,11 @@ services:
     networks:
       - fins-network
     healthcheck:
-      test:
-        - CMD
-        - mongosh
-        - --tls
-        - --tlsCAFile=/tmp/ca.crt
-        - --tlsAllowInvalidCertificates
-        - -u
-        - ${MONGODB_ROOT_USERNAME:-admin}
-        - -p
-        - ${MONGODB_ROOT_PASSWORD:-admin123}
-        - --authenticationDatabase
-        - admin
-        - --eval
-        - "db.adminCommand('ping')"
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 40s
+      start_period: 60s
 
   consul:
     image: hashicorp/consul:1.22.3
@@ -575,9 +562,12 @@ services:
       - "4040:4040"  # Ngrok Web UI
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command: http nginx-proxy:4000
+    command: 
+      - "http"
+      - "nginx-proxy:4000"
     depends_on:
-      - nginx-proxy
+      nginx-proxy:
+        condition: service_healthy
     networks:
       - fins-network
 
