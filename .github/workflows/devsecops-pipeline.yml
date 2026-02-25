@@ -443,6 +443,91 @@ jobs:
           cd microservices/aiservice
           docker build -t ghcr.io/${{ github.repository_owner }}/fins-aiservice:latest .
 
+      - name: Generate MongoDB TLS Certificates
+        run: |
+          CERT_DIR="${{ github.workspace }}/microservices/docker-compose/mongodb-security/certs"
+          mkdir -p "$CERT_DIR"
+          cd "$CERT_DIR"
+          DAYS=3650
+          SUBJ="/C=VN/ST=HoChiMinh/L=HoChiMinh/O=StockApp/OU=Security"
+          SERVICES="gateway userservice notificationservice stockservice newsservice crawlservice aitoolsservice"
+          echo "🔐 Generating MongoDB TLS certificates..."
+          openssl genrsa -out ca.key 4096 2>/dev/null
+          openssl req -x509 -new -nodes -key ca.key -sha256 -days $DAYS -out ca.crt \
+            -subj "$SUBJ/CN=StockApp-MongoDB-CA" 2>/dev/null
+          for SERVICE in $SERVICES; do
+            HOST="${SERVICE}-mongodb"
+            openssl genrsa -out ${HOST}.key 2048 2>/dev/null
+            openssl req -new -key ${HOST}.key -out ${HOST}.csr \
+              -subj "$SUBJ/CN=$HOST" 2>/dev/null
+            cat > ${HOST}.ext << EXTEOF
+          authorityKeyIdentifier=keyid,issuer
+          basicConstraints=CA:FALSE
+          keyUsage=digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment
+          subjectAltName=@alt_names
+          [alt_names]
+          DNS.1=$HOST
+          DNS.2=localhost
+          DNS.3=mongodb
+          IP.1=127.0.0.1
+          EXTEOF
+            openssl x509 -req -in ${HOST}.csr -CA ca.crt -CAkey ca.key \
+              -CAcreateserial -out ${HOST}.crt -days $DAYS -sha256 -extfile ${HOST}.ext 2>/dev/null
+            cat ${HOST}.key ${HOST}.crt > ${HOST}.pem
+            chmod 600 ${HOST}.pem
+            rm -f ${HOST}.csr ${HOST}.ext
+          done
+          openssl pkcs12 -export -in ca.crt -nokeys -out truststore.p12 \
+            -passout pass:changeit -name mongodb-ca 2>/dev/null
+          cat ca.crt > ca-bundle.pem
+          echo "✅ TLS certificates generated successfully"
+
+      - name: Create environment configuration
+        working-directory: microservices/docker-compose
+        env:
+          MONGODB_ROOT_PASSWORD: ${{ secrets.MONGODB_ROOT_PASSWORD }}
+          JWT_BASE64_SECRET: ${{ secrets.JWT_BASE64_SECRET }}
+          ENCRYPTION_MASTER_KEY: ${{ secrets.ENCRYPTION_MASTER_KEY }}
+          ENCRYPTION_SALT: ${{ secrets.ENCRYPTION_SALT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
+        run: |
+          cat > .env << ENVEOF
+          MONGODB_ROOT_USERNAME=admin
+          MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+          JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
+          ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+          ENCRYPTION_SALT=${ENCRYPTION_SALT}
+          GATEWAY_MONGODB_USER=gatewaylong
+          GATEWAY_MONGODB_PASSWORD=gateway26012003
+          USERSERVICE_MONGODB_USER=userservicelong
+          USERSERVICE_MONGODB_PASSWORD=userservice26012003
+          STOCKSERVICE_MONGODB_USER=stockservicelong
+          STOCKSERVICE_MONGODB_PASSWORD=stockservice26012003
+          NEWSSERVICE_MONGODB_USER=newsservicelong
+          NEWSSERVICE_MONGODB_PASSWORD=newsservice26012003
+          NOTIFICATIONSERVICE_MONGODB_USER=notificationservicelong
+          NOTIFICATIONSERVICE_MONGODB_PASSWORD=notificationservice26012003
+          CRAWLSERVICE_MONGODB_USER=crawlservicelong
+          CRAWLSERVICE_MONGODB_PASSWORD=crawlservice26012003
+          AITOOLSSERVICE_MONGODB_USER=aitoolsservicelong
+          AITOOLSSERVICE_MONGODB_PASSWORD=aitoolsservice26012003
+          GEMINI_API_KEY=${GEMINI_API_KEY}
+          TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}
+          TWELVE_DATA_BASE_URL=https://api.twelvedata.com
+          FINNHUB_API_KEY=${FINNHUB_API_KEY}
+          FINNHUB_BASE_URL=https://finnhub.io/api/v1
+          MARKETAUX_API_KEY=${MARKETAUX_API_KEY}
+          MARKETAUX_BASE_URL=https://api.marketaux.com/v1
+          ENVEOF
+          echo "✅ Environment file created from GitHub Secrets"
+
+      - name: Stop old deployment
+        working-directory: microservices/docker-compose
+        run: docker compose down --remove-orphans 2>/dev/null || true
+
       - name: Deploy services
         working-directory: microservices/docker-compose
         run: |
