@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import pandas_ta as ta
 from prophet import Prophet
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional, Dict
@@ -49,15 +50,28 @@ class ProphetPredictionService:
                 )
                 return None
 
-            # Prepare data for Prophet
+            # Prepare data for Prophet - keeping full dataframe structure for TA checks
             df = self._prepare_data(historical_data)
             
-            if df is None or df.empty:
-                logger.error(f"Failed to prepare data for {symbol}")
+            if df is None or len(df) < 50:  # Require at least 50 days for EMA(50) calculation
+                logger.error(f"Failed to prepare data or insufficient data for technical analysis for {symbol}")
                 return None
 
+            # Add Technical Indicators
+            df = self._calculate_technical_indicators(df)
+
+            # Extract the actual value at current time
+            current_price = df['y'].iloc[-1]
+            current_rsi = df['RSI_14'].iloc[-1]
+            current_macd = df['MACD_12_26_9'].iloc[-1]
+            current_ema20 = df['EMA_20'].iloc[-1]
+            current_ema50 = df['EMA_50'].iloc[-1]
+            
+            # Prepare only requested columns for Prophet to ensure no warnings 
+            prophet_df = df[['ds', 'y', 'volume']].copy()
+
             # Train model and forecast
-            forecast_df = self._train_and_forecast(df, forecast_days)
+            forecast_df = self._train_and_forecast(prophet_df, forecast_days)
             
             if forecast_df is None:
                 logger.error(f"Failed to generate forecast for {symbol}")
@@ -72,6 +86,14 @@ class ProphetPredictionService:
             lower_bound = forecast_df['yhat_lower'].iloc[-1]
             upper_bound = forecast_df['yhat_upper'].iloc[-1]
 
+            # Get hybrid recommendation
+            hybrid_rec = self._get_recommendation_label(
+                change_percent, 
+                current_rsi, 
+                current_price, 
+                current_ema20
+            )
+
             result = {
                 'symbol': symbol,
                 'forecast_days': forecast_days,
@@ -81,7 +103,11 @@ class ProphetPredictionService:
                 'change_percent': float(change_percent),
                 'confidence_interval_lower': float(lower_bound),
                 'confidence_interval_upper': float(upper_bound),
-                'recommendation': self._get_recommendation_label(change_percent),
+                'recommendation': hybrid_rec,
+                'rsi': float(current_rsi) if not pd.isna(current_rsi) else None,
+                'macd': float(current_macd) if not pd.isna(current_macd) else None,
+                'ema_20': float(current_ema20) if not pd.isna(current_ema20) else None,
+                'ema_50': float(current_ema50) if not pd.isna(current_ema50) else None,
                 'created_at': datetime.utcnow()
             }
 
@@ -103,11 +129,14 @@ class ProphetPredictionService:
             df = pd.DataFrame(historical_data)
             
             # Prophet requires 'ds' (date) and 'y' (value) columns
-            # datetime is already ISODate from time series collection
             df['ds'] = pd.to_datetime(df['datetime'])
-            
-            # close is stored as string in the data, convert to float
             df['y'] = pd.to_numeric(df['close'], errors='coerce')
+            df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(0)
+            
+            # Add OHLC columns for TA tracking
+            df['open'] = pd.to_numeric(df['open'], errors='coerce')
+            df['high'] = pd.to_numeric(df['high'], errors='coerce')
+            df['low'] = pd.to_numeric(df['low'], errors='coerce')
             
             # Sort by date
             df = df.sort_values('ds')
@@ -115,11 +144,22 @@ class ProphetPredictionService:
             # Remove duplicates
             df = df.drop_duplicates(subset=['ds'], keep='last')
             
-            # Keep only required columns
-            df = df[['ds', 'y']]
+            # Keep required columns
+            df = df[['ds', 'y', 'volume', 'open', 'high', 'low']]
             
-            # Remove NaN values
+            # Remove NaN rows
             df = df.dropna()
+
+            # Handle Outliers using IQR method
+            Q1 = df['y'].quantile(0.25)
+            Q3 = df['y'].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+
+            # Cap outliers instead of removing to maintain time continuity
+            df['y'] = np.where(df['y'] < lower_bound, lower_bound, df['y'])
+            df['y'] = np.where(df['y'] > upper_bound, upper_bound, df['y'])
             
             logger.debug(f"Prepared {len(df)} data points for Prophet training")
             
@@ -128,6 +168,34 @@ class ProphetPredictionService:
         except Exception as e:
             logger.error(f"Error preparing data: {e}")
             return None
+
+    def _calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate technical indicators using pandas-ta"""
+        try:
+            # Reindex to avoid CopyWarning 
+            df = df.copy()
+
+            # Pass 'y' as 'close' for pandas-ta
+            df.rename(columns={'y': 'close'}, inplace=True)
+            
+            # RSI (Relative Strength Index)
+            df.ta.rsi(length=14, append=True)
+            
+            # MACD
+            df.ta.macd(fast=12, slow=26, signal=9, append=True)
+            
+            # Exponential Moving Averages
+            df.ta.ema(length=20, append=True)
+            df.ta.ema(length=50, append=True)
+            
+            # Change name back for Prophet requirements
+            df.rename(columns={'close': 'y'}, inplace=True)
+            
+            return df
+        
+        except Exception as e:
+            logger.error(f"Error calculating technical indicators: {e}")
+            return df
 
     def _train_and_forecast(
         self,
@@ -147,10 +215,14 @@ class ProphetPredictionService:
             )
 
             # Fit model
+            model.add_regressor('volume')
             model.fit(df)
 
             # Create future dataframe
             future = model.make_future_dataframe(periods=forecast_days)
+            
+            # Adding regressors to future dataframe (forward filling latest volume)
+            future['volume'] = df['volume'].iloc[-1]
 
             # Generate forecast
             forecast = model.predict(future)
@@ -164,18 +236,39 @@ class ProphetPredictionService:
             logger.error(f"Error training/forecasting: {e}")
             return None
 
-    def _get_recommendation_label(self, change_percent: float) -> str:
-        """Convert change percentage to recommendation label"""
-        if change_percent >= settings.STRONG_BUY_THRESHOLD:
+    def _get_recommendation_label(
+        self, 
+        change_percent: float, 
+        rsi: float, 
+        current_price: float, 
+        ema20: float
+    ) -> str:
+        """Convert change percentage and TA to recommendation label"""
+        
+        # Prophet indicates UP trends
+        prophet_up = change_percent > 0
+        
+        # Prophet indicates DOWN trends
+        prophet_down = change_percent < 0
+        
+        # Hybrid Approach: Technical analysis filters Prophet prediction
+        if prophet_up and rsi < 70 and current_price > ema20:
             return "STRONG_BUY"
-        elif change_percent >= settings.BUY_THRESHOLD:
-            return "BUY"
-        elif change_percent >= settings.HOLD_THRESHOLD:
-            return "HOLD"
-        elif change_percent >= settings.SELL_THRESHOLD:
-            return "SELL"
-        else:
+        elif prophet_down and rsi > 30 and current_price < ema20:
             return "STRONG_SELL"
+            
+        # Standard Prophet rules backoff if conditions aren't perfectly met
+        if change_percent >= settings.STRONG_BUY_THRESHOLD:
+            # Mismatched analysis (e.g. AI says strong buy but RSI > 70/Overbought), tone down
+            return "BUY" if rsi < 75 else "HOLD"
+        elif change_percent >= settings.BUY_THRESHOLD:
+            return "BUY" if current_price > ema20 else "HOLD"
+        elif change_percent <= settings.STRONG_SELL_THRESHOLD:
+            return "SELL" if rsi > 25 else "HOLD"
+        elif change_percent <= settings.SELL_THRESHOLD:
+            return "SELL" if current_price < ema20 else "HOLD"
+        else:
+            return "HOLD"
 
     async def generate_recommendation(
         self,
@@ -225,7 +318,11 @@ class ProphetPredictionService:
                     'current_price': prediction['current_price'],
                     'change_percent': prediction['change_percent'],
                     'confidence_lower': prediction['confidence_interval_lower'],
-                    'confidence_upper': prediction['confidence_interval_upper']
+                    'confidence_upper': prediction['confidence_interval_upper'],
+                    'rsi': prediction.get('rsi'),
+                    'macd': prediction.get('macd'),
+                    'ema_20': prediction.get('ema_20'),
+                    'ema_50': prediction.get('ema_50')
                 }
             }
 
@@ -325,12 +422,19 @@ class ProphetPredictionService:
             # Prepare data for Prophet
             df = self._prepare_data(historical_data)
             
-            if df is None or df.empty:
-                logger.error(f"Failed to prepare data for {symbol}")
+            if df is None or len(df) < 50:
+                logger.error(f"Failed to prepare data or insufficient data for technical analysis for {symbol}")
                 return None
 
-            # Get current price
+            # Add Technical Indicators
+            df = self._calculate_technical_indicators(df)
+
+            # Get current price and TA
             current_price = df['y'].iloc[-1]
+            current_rsi = df['RSI_14'].iloc[-1]
+            current_ema20 = df['EMA_20'].iloc[-1]
+
+            prophet_df = df[['ds', 'y', 'volume']].copy()
 
             # Train Prophet model
             model = Prophet(
@@ -341,10 +445,12 @@ class ProphetPredictionService:
                 weekly_seasonality=True,
                 yearly_seasonality=True
             )
-            model.fit(df)
+            model.add_regressor('volume')
+            model.fit(prophet_df)
 
             # Create future dataframe (including historical for fitted values)
             future = model.make_future_dataframe(periods=forecast_days)
+            future['volume'] = prophet_df['volume'].iloc[-1]
             forecast = model.predict(future)
 
             # Build chart data
@@ -389,7 +495,12 @@ class ProphetPredictionService:
                 'current_price': float(current_price),
                 'predicted_price': float(predicted_price),
                 'change_percent': float(change_percent),
-                'recommendation': self._get_recommendation_label(change_percent),
+                'recommendation': self._get_recommendation_label(
+                    change_percent, 
+                    current_rsi, 
+                    current_price, 
+                    current_ema20
+                ),
                 'data': chart_data,
                 'created_at': datetime.utcnow()
             }

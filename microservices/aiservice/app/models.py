@@ -53,6 +53,10 @@ class PredictionResponse(BaseModel):
     predicted_price: float
     change_percent: float
     recommendation: str
+    rsi: Optional[float] = None
+    macd: Optional[float] = None
+    ema_20: Optional[float] = None
+    ema_50: Optional[float] = None
     confidence_interval_lower: Optional[float] = None
     confidence_interval_upper: Optional[float] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
