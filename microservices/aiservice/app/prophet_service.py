@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import pandas_ta as ta
+import talib
 from prophet import Prophet
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional, Dict
@@ -129,7 +129,8 @@ class ProphetPredictionService:
             df = pd.DataFrame(historical_data)
             
             # Prophet requires 'ds' (date) and 'y' (value) columns
-            df['ds'] = pd.to_datetime(df['datetime'])
+            # Ensure ds is naive (Prophet doesn't like aware datetimes)
+            df['ds'] = pd.to_datetime(df['datetime']).dt.tz_localize(None)
             df['y'] = pd.to_numeric(df['close'], errors='coerce')
             df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(0)
             
@@ -170,26 +171,26 @@ class ProphetPredictionService:
             return None
 
     def _calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate technical indicators using pandas-ta"""
+        """Calculate technical indicators using talib"""
         try:
             # Reindex to avoid CopyWarning 
             df = df.copy()
 
-            # Pass 'y' as 'close' for pandas-ta
-            df.rename(columns={'y': 'close'}, inplace=True)
+            # Pass 'y' as 'close' for talib
+            close_prices = df['y'].values
             
             # RSI (Relative Strength Index)
-            df.ta.rsi(length=14, append=True)
+            df['RSI_14'] = talib.RSI(close_prices, timeperiod=14)
             
             # MACD
-            df.ta.macd(fast=12, slow=26, signal=9, append=True)
+            macd, macdsignal, macdhist = talib.MACD(close_prices, fastperiod=12, slowperiod=26, signalperiod=9)
+            df['MACD_12_26_9'] = macd
+            df['MACDh_12_26_9'] = macdhist
+            df['MACDs_12_26_9'] = macdsignal
             
             # Exponential Moving Averages
-            df.ta.ema(length=20, append=True)
-            df.ta.ema(length=50, append=True)
-            
-            # Change name back for Prophet requirements
-            df.rename(columns={'close': 'y'}, inplace=True)
+            df['EMA_20'] = talib.EMA(close_prices, timeperiod=20)
+            df['EMA_50'] = talib.EMA(close_prices, timeperiod=50)
             
             return df
         
@@ -221,8 +222,13 @@ class ProphetPredictionService:
             # Create future dataframe
             future = model.make_future_dataframe(periods=forecast_days)
             
-            # Adding regressors to future dataframe (forward filling latest volume)
-            future['volume'] = df['volume'].iloc[-1]
+            # Ensure future dates are naive
+            future['ds'] = future['ds'].dt.tz_localize(None)
+
+            # Map historical volume and forward-fill for future
+            df_vol = df[['ds', 'volume']].set_index('ds')
+            future = future.join(df_vol, on='ds')
+            future['volume'] = future['volume'].ffill().fillna(0)
 
             # Generate forecast
             forecast = model.predict(future)
@@ -450,7 +456,15 @@ class ProphetPredictionService:
 
             # Create future dataframe (including historical for fitted values)
             future = model.make_future_dataframe(periods=forecast_days)
-            future['volume'] = prophet_df['volume'].iloc[-1]
+            
+            # Ensure future dates are naive
+            future['ds'] = future['ds'].dt.tz_localize(None)
+            
+            # Map historical volume and forward-fill for future
+            df_vol = df[['ds', 'volume']].set_index('ds')
+            future = future.join(df_vol, on='ds')
+            future['volume'] = future['volume'].ffill().fillna(0)
+            
             forecast = model.predict(future)
 
             # Build chart data
