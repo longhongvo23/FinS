@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import pandas_ta as ta
 from prophet import Prophet
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional, Dict
@@ -11,7 +10,7 @@ from app.database import mongodb_service
 
 
 class ProphetPredictionService:
-    """Service for stock price prediction using Prophet"""
+    """Service for stock price prediction using Prophet (Independent of TA-Lib/pandas-ta)"""
 
     def __init__(self):
         self.forecast_days = settings.PROPHET_FORECAST_DAYS
@@ -47,18 +46,15 @@ class ProphetPredictionService:
                 logger.error(f"Insufficient data for TA on {symbol}")
                 return None
 
-            # Calculate Technical Indicators (pandas-ta)
-            df = self._calculate_technical_indicators(df)
+            # Manual Calculation of Technical Indicators
+            df = self._calculate_technical_indicators_manual(df)
 
             # Get current values
             current_price = df['y'].iloc[-1]
             current_rsi = df['RSI_14'].iloc[-1]
             current_ema20 = df['EMA_20'].iloc[-1]
             current_ema50 = df['EMA_50'].iloc[-1]
-            # MACD might have different name depending on version
-            # Use safe get
-            macd_col = [c for c in df.columns if 'MACD_' in c and 'h' not in c and 's' not in c]
-            current_macd = df[macd_col[0]].iloc[-1] if macd_col else None
+            current_macd = df['MACD_Line'].iloc[-1]
             
             # Prepare for Prophet
             prophet_df = df[['ds', 'y', 'volume']].copy()
@@ -128,23 +124,37 @@ class ProphetPredictionService:
             logger.error(f"Error preparing data: {e}")
             return None
 
-    def _calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _calculate_technical_indicators_manual(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Manual calculation of indicators using pure pandas to avoid dependency hell"""
         try:
             df = df.copy()
-            # pandas-ta needs 'close'
-            df['close'] = df['y']
+            close = df['y']
             
-            # RSI(14)
-            df.ta.rsi(length=14, append=True)
-            # EMA(20), EMA(50)
-            df.ta.ema(length=20, append=True)
-            df.ta.ema(length=50, append=True)
-            # MACD
-            df.ta.macd(append=True)
+            # --- RSI (14) using Wilder's Smoothing ---
+            delta = close.diff()
+            up = delta.where(delta > 0, 0)
+            down = -delta.where(delta < 0, 0)
+            
+            # alpha = 1 / period for Wilder's
+            avg_gain = up.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
+            avg_loss = down.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
+            rs = avg_gain / avg_loss
+            df['RSI_14'] = 100 - (100 / (1 + rs))
+            
+            # --- EMA (20 & 50) ---
+            df['EMA_20'] = close.ewm(span=20, adjust=False).mean()
+            df['EMA_50'] = close.ewm(span=50, adjust=False).mean()
+            
+            # --- MACD (12, 26, 9) ---
+            exp1 = close.ewm(span=12, adjust=False).mean()
+            exp2 = close.ewm(span=26, adjust=False).mean()
+            df['MACD_Line'] = exp1 - exp2
+            df['MACD_Signal'] = df['MACD_Line'].ewm(span=9, adjust=False).mean()
+            df['MACD_Hist'] = df['MACD_Line'] - df['MACD_Signal']
             
             return df
         except Exception as e:
-            logger.error(f"Error calculation indicators: {e}")
+            logger.error(f"Error manual calculation indicators: {e}")
             return df
 
     def _train_and_forecast(self, df: pd.DataFrame, forecast_days: int) -> Optional[pd.DataFrame]:
@@ -163,7 +173,7 @@ class ProphetPredictionService:
             future = model.make_future_dataframe(periods=forecast_days)
             future['ds'] = future['ds'].dt.tz_localize(None)
             
-            # Map volume to future
+            # Map volume to future (forward fill)
             vol_map = df[['ds', 'volume']].set_index('ds')
             future = future.join(vol_map, on='ds')
             future['volume'] = future['volume'].ffill().fillna(0)
@@ -176,24 +186,25 @@ class ProphetPredictionService:
 
     def _get_recommendation_label(self, change_percent: float, rsi: float, price: float, ema20: float) -> str:
         """
-        Logic Hybrid: Kết hợp Prophet và Technical Indicators
+        Hybrid logic with override requested
         """
         # Dự báo từ AI
         is_prophet_up = change_percent > 0.5
         is_prophet_down = change_percent < -0.5
 
         # 1. Luật STRONG BUY: Prophet tăng + RSI chưa quá mua + Giá trên EMA20
-        if is_prophet_up and rsi < 70 and price > ema20:
+        if is_prophet_up and (rsi < 70) and (price > ema20):
             return "STRONG_BUY"
         
-        # 2. Luật STRONG SELL: Prophet giảm + RSI chưa quá bán + Giá dưới EMA20
-        if is_prophet_down and rsi > 30 and price < ema20:
-            # KIỂM TRA ĐẶC BIỆT THEO YÊU CẦU: Nếu RSI > 50 và Giá > EMA20 thì không Sell mạnh
-            if rsi > 50 and price > ema20:
-                return "HOLD"
+        # 2. Luật lọc dự báo ngược: Nếu Prophet báo Bán nhưng RSI > 50 và Giá > EMA20 -> HOLD
+        if is_prophet_down and (rsi > 50) and (price > ema20):
+            return "HOLD"
+
+        # 3. Luật STRONG SELL: Prophet giảm + Giá dưới EMA20
+        if is_prophet_down and (price < ema20):
             return "STRONG_SELL"
 
-        # 3. Phân loại theo ngưỡng phần trăm (Backoff)
+        # 4. Standard rules backoff
         if change_percent >= 2.0:
             return "BUY" if rsi < 75 else "HOLD"
         elif change_percent >= 0.5:
@@ -214,7 +225,7 @@ class ProphetPredictionService:
                 return None
 
             df = self._prepare_data(historical_data)
-            df = self._calculate_technical_indicators(df)
+            df = self._calculate_technical_indicators_manual(df)
             
             current_price = df['y'].iloc[-1]
             current_rsi = df['RSI_14'].iloc[-1]
@@ -293,7 +304,8 @@ class ProphetPredictionService:
                     'current_price': prediction['current_price'],
                     'change_percent': prediction['change_percent'],
                     'rsi': prediction.get('rsi'),
-                    'ema_20': prediction.get('ema_20')
+                    'ema_20': prediction.get('ema_20'),
+                    'macd': prediction.get('macd')
                 }
             }
             await mongodb_service.save_recommendation(rec)
