@@ -1,17 +1,50 @@
 # Ngrok Free vs Paid: Static Domains
 
-## ❌ Vấn đề: Domain trong Dashboard không dùng được với Free Plan
+## ✅ UPDATE: Ngrok Free CÓ Static Domain!
 
-Bạn thấy domain `gabrielle-go-venture-deserves-artificially.ngrok-free.app` trong Ngrok Dashboard nhưng **KHÔNG THỂ dùng** với free account!
-
-### Lý do:
+**Domain hiện tại (FREE):**
 ```
-ERROR: Only paid plans may create endpoints with custom subdomains
-ERROR: This account is on the 'Free' plan
-ERROR: ERR_NGROK_313
+https://gabrielle-polymeric-iconoclastically.ngrok-free.dev
 ```
 
-Domain trong dashboard **CHỈ LÀ PLACEHOLDER** - ngrok "giữ chỗ" cho bạn nhưng cần upgrade mới dùng được.
+### Ngrok cung cấp 2 loại domains:
+
+1. **`.ngrok-free.app`** (Random) - Đổi mỗi khi restart
+   - Ví dụ: `https://f982-118-71-215-186.ngrok-free.app`
+   - Không cần config
+   
+2. **`.ngrok-free.dev`** (Static) - CỐ ĐỊNH, không đổi! ✨
+   - Ví dụ: `https://gabrielle-polymeric-iconoclastically.ngrok-free.dev`
+   - Cần config `--domain` flag
+   - **MIỄN PHÍ** - không cần paid plan!
+
+## ✨ Đã Config Static Domain
+
+File `docker-compose.yml` đã được cập nhật:
+```yaml
+ngrok:
+  command: 
+    - "http"
+    - "--domain=gabrielle-polymeric-iconoclastically.ngrok-free.dev"
+    - "nginx-proxy:4000"
+```
+
+**Benefits:**
+- ✅ URL không đổi khi restart container
+- ✅ URL không đổi khi restart server
+- ✅ Share 1 lần, dùng mãi mãi
+- ✅ Hoàn toàn MIỄN PHÍ
+
+## ❌ Vấn đề CŨ đã được FIX
+
+**Trước đây tôi nghĩ:**
+- Domain trong dashboard chỉ dùng được với paid plan
+- Free plan chỉ có random URLs
+
+**Sự thật:**
+- Ngrok free CÓ static domains với suffix `.ngrok-free.dev`
+- Domain `.ngrok-free.app` trong dashboard là paid
+- Domain `.ngrok-free.dev` là FREE!
 
 ## 📊 So sánh Free vs Paid
 

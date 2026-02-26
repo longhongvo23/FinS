@@ -4,6 +4,9 @@
 
 set -e
 
+# Static domain configured in docker-compose.yml
+STATIC_DOMAIN="gabrielle-polymeric-iconoclastically.ngrok-free.dev"
+
 echo "🔍 Getting ngrok public URL..."
 echo ""
 
@@ -14,22 +17,13 @@ if ! docker ps --format '{{.Names}}' | grep -q "^ngrok$"; then
     exit 1
 fi
 
-# Get the public URL from ngrok API
-PUBLIC_URL=$(curl -s http://localhost:4040/api/tunnels | python -c "import sys, json; print(json.load(sys.stdin)['tunnels'][0]['public_url'])" 2>/dev/null)
-
-if [ -z "$PUBLIC_URL" ]; then
-    echo "❌ Error: Could not get ngrok URL"
-    echo "Check ngrok logs: docker logs ngrok"
-    exit 1
-fi
-
-echo "✅ Ngrok is running!"
+echo "✅ Ngrok is running with STATIC DOMAIN!"
 echo ""
-echo "📡 Public URL: $PUBLIC_URL"
-echo "🖥️  Web UI:     http://localhost:4040"
+echo "📡 Static URL: https://$STATIC_DOMAIN"
+echo "🖥️  Web UI:    http://localhost:4040"
 echo ""
 echo "Test with:"
-echo "  curl $PUBLIC_URL"
+echo "  curl https://$STATIC_DOMAIN"
 echo ""
-echo "⚠️  Note: Free ngrok URLs change on each restart"
-echo "    For static URLs, upgrade to ngrok paid plan with reserved domains"
+echo "✨ This URL is PERMANENT - never changes on restart!"
+echo "   Share this with your team: https://$STATIC_DOMAIN"

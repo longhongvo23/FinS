@@ -565,6 +565,7 @@ services:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     command: 
       - "http"
+      - "--domain=gabrielle-polymeric-iconoclastically.ngrok-free.dev"
       - "nginx-proxy:4000"
     depends_on:
       nginx-proxy:

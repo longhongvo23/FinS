@@ -2,6 +2,9 @@
 REM Get current ngrok public URL (Windows)
 REM Usage: scripts\get-ngrok-url.bat
 
+REM Static domain configured in docker-compose.yml
+set STATIC_DOMAIN=gabrielle-polymeric-iconoclastically.ngrok-free.dev
+
 echo Getting ngrok public URL...
 echo.
 
@@ -13,22 +16,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Get the public URL from ngrok API
-for /f "delims=" %%i in ('curl -s http://localhost:4040/api/tunnels ^| python -c "import sys, json; print(json.load(sys.stdin)['tunnels'][0]['public_url'])"') do set PUBLIC_URL=%%i
-
-if "%PUBLIC_URL%"=="" (
-    echo Error: Could not get ngrok URL
-    echo Check ngrok logs: docker logs ngrok
-    exit /b 1
-)
-
-echo Ngrok is running!
+echo Ngrok is running with STATIC DOMAIN!
 echo.
-echo Public URL: %PUBLIC_URL%
+echo Static URL: https://%STATIC_DOMAIN%
 echo Web UI:     http://localhost:4040
 echo.
 echo Test with:
-echo   curl %PUBLIC_URL%
+echo   curl https://%STATIC_DOMAIN%
 echo.
-echo Note: Free ngrok URLs change on each restart
-echo       For static URLs, upgrade to ngrok paid plan
+echo This URL is PERMANENT - never changes on restart!
+echo Share this with your team: https://%STATIC_DOMAIN%

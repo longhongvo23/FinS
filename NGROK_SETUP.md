@@ -58,6 +58,11 @@ bash scripts/start-server.sh
 
 ### Xem Ngrok URL
 
+**🎉 Static Domain - URL CỐ ĐỊNH:**
+```
+https://gabrielle-polymeric-iconoclastically.ngrok-free.dev
+```
+
 **Cách 1: Web UI (Đơn giản nhất)**
 ```
 http://localhost:4040
@@ -77,10 +82,11 @@ bash scripts/get-ngrok-url.sh
 curl http://localhost:4040/api/tunnels
 ```
 
-⚠️ **Lưu ý quan trọng về Free URLs:**
-- Free ngrok URLs thay đổi mỗi khi restart container
-- URL có dạng: `https://xxxx-xxx-xxx-xxx-xxx.ngrok-free.app`
-- Để có URL cố định, xem phần "Static Domains" bên dưới
+✨ **Static Domain - Không đổi khi restart:**
+- URL: `https://gabrielle-polymeric-iconoclastically.ngrok-free.dev`
+- Ngrok free cung cấp static domain `.ngrok-free.dev` (không phải `.ngrok-free.app`)
+- URL này KHÔNG thay đổi khi restart container hoặc server
+- Share URL này cho team, không cần update!
 
 **Tất cả đã tự động!** Không cần chạy `start-ngrok.sh` nữa!
 
