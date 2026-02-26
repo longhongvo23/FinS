@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { WatchlistTable } from '@/components/watchlist/watchlist-table'
 import { useWatchlistStore } from '@/stores/watchlist-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { GuestRestricted } from '@/components/guest-restricted'
 
 export function WatchlistPage() {
   const {
@@ -27,7 +28,12 @@ export function WatchlistPage() {
     loadWatchlistFromAPI,
   } = useWatchlistStore()
 
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isGuest } = useAuthStore()
+
+  // Show guest restriction if user is guest
+  if (isGuest) {
+    return <GuestRestricted featureName="Danh sách theo dõi" />
+  }
 
   const activeWatchlist = watchlists.find((w) => w.id === activeWatchlistId)
   const stocks = activeWatchlist?.stocks || []

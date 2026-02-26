@@ -33,21 +33,21 @@ export function StockDetailPage() {
   const { symbol } = useParams<{ symbol: string }>()
   const [isInWatchlist, setIsInWatchlist] = useState(false)
   const [togglingWatchlist, setTogglingWatchlist] = useState(false)
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isGuest } = useAuthStore()
 
   const actualSymbol = symbol?.toUpperCase() || 'AAPL'
   const tvSymbol = `${getExchange(actualSymbol)}:${actualSymbol}`
 
   // Load watchlist status from backend
   const checkWatchlistStatus = useCallback(async () => {
-    if (!isAuthenticated || !symbol) return
+    if (!isAuthenticated || isGuest || !symbol) return
     try {
       const inWatchlist = await watchlistService.isInWatchlist(symbol.toUpperCase())
       setIsInWatchlist(inWatchlist)
     } catch (error) {
       console.error('Failed to check watchlist status:', error)
     }
-  }, [isAuthenticated, symbol])
+  }, [isAuthenticated, isGuest, symbol])
 
   useEffect(() => {
     checkWatchlistStatus()
@@ -55,7 +55,7 @@ export function StockDetailPage() {
 
   // Toggle watchlist with backend API
   const toggleWatchlist = async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || isGuest) {
       toast.error('Vui lòng đăng nhập để sử dụng chức năng này')
       return
     }

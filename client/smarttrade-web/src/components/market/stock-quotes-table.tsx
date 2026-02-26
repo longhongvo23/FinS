@@ -143,17 +143,16 @@ export const StockQuotesTable = memo(() => {
     // Filter state
     const [filter, setFilter] = useState<FilterType>('all');
 
-    const { isAuthenticated } = useAuthStore();
+    const { isAuthenticated, isGuest } = useAuthStore();
 
     const fetchWatchlistStatus = useCallback(async () => {
-        if (!isAuthenticated) return;
+        if (!isAuthenticated || isGuest) return;
         try {
             const list = await watchlistService.getWatchlist();
             setWatchlist(new Set(list.map(item => item.symbol)));
         } catch (error) {
-            console.error('Failed to fetch watchlist:', error);
         }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, isGuest]);
 
     const fetchQuotes = useCallback(async (isRefresh = false) => {
         if (isRefresh) {
@@ -202,7 +201,7 @@ export const StockQuotesTable = memo(() => {
     }, []);
 
     const toggleWatchlist = async (symbol: string) => {
-        if (!isAuthenticated) {
+        if (!isAuthenticated || isGuest) {
             toast.error('Vui lòng đăng nhập để thêm vào danh sách theo dõi');
             return;
         }

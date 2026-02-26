@@ -49,7 +49,7 @@ export function TermsPage() {
                                 <AlertTriangle className="h-5 w-5 text-brand" />
                                 2. Miễn trừ trách nhiệm về Tài chính
                             </h3>
-                            <div className="bg-danger/5 border border-danger/20 rounded-lg p-4 text-danger-foreground">
+                            <div className="bg-danger/5 border border-danger/20 rounded-lg p-4 text-danger font-medium">
                                 <p className="font-bold underline mb-2">CẢNH BÁO RỦI RO:</p>
                                 Mọi dữ liệu, phân tích và dự báo từ AI chỉ mang tính chất tham khảo. Đầu tư chứng khoán luôn tiềm ẩn rủi ro mất mát vốn.
                                 SmartTrade AI <strong>không chịu trách nhiệm</strong> cho bất kỳ khoản thua lỗ tài chính nào phát sinh từ việc sử dụng thông tin của chúng tôi để ra quyết định đầu tư.
