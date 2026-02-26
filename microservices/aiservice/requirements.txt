@@ -7,9 +7,10 @@ pydantic-settings==2.1.0
 # Prophet & ML Dependencies
 prophet==1.1.5
 cmdstanpy==1.2.0
-pandas>=2.3.2
+pandas>=2.1.4
 numpy<2.0.0
 scikit-learn>=1.3.2
+pandas-ta==0.3.14b
 TA-Lib==0.4.28
 
 # Database
