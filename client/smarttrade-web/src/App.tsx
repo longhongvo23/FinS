@@ -26,6 +26,10 @@ const VerifyEmailPage = lazy(() => import('@/pages/auth/verify-email').then(m =>
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/forgot-password').then(m => ({ default: m.ForgotPasswordPage })))
 const ResetPasswordPage = lazy(() => import('@/pages/auth/reset-password').then(m => ({ default: m.ResetPasswordPage })))
 
+// Info Pages - lazy loaded
+const TermsPage = lazy(() => import('@/pages/terms').then(m => ({ default: m.TermsPage })))
+const PrivacyPage = lazy(() => import('@/pages/privacy').then(m => ({ default: m.PrivacyPage })))
+
 // Main Pages - lazy loaded
 const DashboardPage = lazy(() => import('@/pages/dashboard').then(m => ({ default: m.DashboardPage })))
 const MarketPage = lazy(() => import('@/pages/market').then(m => ({ default: m.MarketPage })))
@@ -93,6 +97,8 @@ function App() {
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
 
               {/* Protected Routes */}
               <Route

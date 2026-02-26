@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, Sun, Moon } from 'lucide-react'
@@ -5,6 +7,15 @@ import { useUIStore } from '@/stores/ui-store'
 import { NotificationCenter } from '@/components/notifications'
 
 export function Header() {
+  const navigate = useNavigate()
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      navigate(`/stock/${searchQuery.trim().toUpperCase()}`)
+      setSearchQuery('')
+    }
+  }
   const { theme, setTheme } = useUIStore()
 
   const toggleTheme = () => {
@@ -21,6 +32,9 @@ export function Header() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
             <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearch}
               placeholder="Tìm mã chứng khoán..."
               className="pl-9 h-9 text-[13px] bg-[var(--color-bg-secondary)] border-[var(--color-border)] focus:border-[var(--color-border-strong)] placeholder:text-[var(--color-text-muted)]"
             />
