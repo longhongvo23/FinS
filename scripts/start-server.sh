@@ -286,9 +286,9 @@ print_info "Starting dependent services (crawlservice, aiservice, aitoolsservice
 $COMPOSE_CMD up -d crawlservice aiservice aitoolsservice
 echo ""
 
-# Start frontend and monitoring
-print_info "Starting frontend and monitoring..."
-$COMPOSE_CMD up -d frontend prometheus alertmanager grafana watchtower
+# Start frontend, monitoring, and remote access (Ngrok + Nginx Proxy)
+print_info "Starting frontend, monitoring and remote access..."
+$COMPOSE_CMD up -d frontend prometheus alertmanager grafana watchtower nginx-proxy ngrok
 echo ""
 
 # ============================================================================
@@ -320,6 +320,16 @@ echo -e "    Frontend:    http://localhost:2302"
 echo -e "    Consul UI:   http://localhost:8500"
 echo -e "    Grafana:     http://localhost:3000  (admin/admin)"
 echo -e "    Prometheus:  http://localhost:9090"
+echo ""
+print_info "Fetching Ngrok public URL..."
+NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | grep -o 'https://[^"]*\.ngrok-free\.dev' | head -n 1)
+if [ -n "$NGROK_URL" ]; then
+    echo -e "  ${CYAN}Public Access (Ngrok):${NC}"
+    echo -e "    URL:         ${GREEN}$NGROK_URL${NC}"
+else
+    print_warn "Could not fetch Ngrok URL. Is NGROK_AUTHTOKEN set in .env?"
+    print_info "Check Ngrok status: http://localhost:4040"
+fi
 echo ""
 echo -e "  ${YELLOW}Commands:${NC}"
 echo -e "    View logs:   cd $COMPOSE_DIR && $COMPOSE_CMD logs -f"
