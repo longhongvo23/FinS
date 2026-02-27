@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # Prophet Model
     PROPHET_FORECAST_DAYS: int = 30
-    PROPHET_CHANGEPOINT_PRIOR_SCALE: float = 0.05
+    PROPHET_CHANGEPOINT_PRIOR_SCALE: float = 0.25
     PROPHET_SEASONALITY_MODE: str = "multiplicative"
     PROPHET_INTERVAL_WIDTH: float = 0.95
 
