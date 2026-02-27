@@ -222,7 +222,7 @@ export function AIChatPage() {
       {/* Header */}
       <PageHeader
         title="AI Assistant"
-        description="Powered by GPT-4o-mini"
+        description="Powered by Gemini"
         actions={
           <div className="flex items-center gap-2">
             {messages.length > 0 && (
