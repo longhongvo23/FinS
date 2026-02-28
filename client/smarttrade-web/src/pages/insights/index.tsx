@@ -599,9 +599,9 @@ export function InsightsPage() {
         title="AI Insights"
         description="Phân tích và nhận định thị trường từ AI"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Time Filter */}
-            <div className="flex bg-[var(--color-bg-secondary)] rounded-lg p-1">
+            <div className="flex bg-[var(--color-bg-secondary)] rounded-lg p-1 overflow-x-auto scrollbar-hide">
               {(['today', 'week', 'month'] as TimeFilter[]).map((filter) => (
                 <button
                   key={filter}
@@ -640,8 +640,8 @@ export function InsightsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="movers">
-        <TabsList className="bg-[var(--color-bg-secondary)] p-1">
+      <Tabs defaultValue="movers" className="w-full">
+        <TabsList className="w-full justify-start bg-[var(--color-bg-secondary)] p-1 overflow-x-auto scrollbar-hide flex-nowrap h-auto">
           <TabsTrigger value="movers" className="text-[12px]">
             <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
             Top Movers

@@ -29,16 +29,16 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0A0A0A] text-gray-900 dark:text-white overflow-x-hidden transition-colors duration-300">
-      {/* Fixed Ticker Tape at very top */}
-      <div className="fixed top-0 left-0 right-0 z-[60]">
+      {/* Fixed Ticker Tape at very top with Safe Area support */}
+      <div className="fixed top-0 left-0 right-0 z-[60] bg-gray-50 dark:bg-[#0A0A0A] pt-[env(safe-area-inset-top)]">
         <TickerTape />
       </div>
 
       {/* Navbar below ticker */}
       <LandingNavbar />
 
-      {/* Main Content with padding for fixed ticker */}
-      <main className="pt-[36px]">
+      {/* Main Content with padding for fixed ticker + safe area */}
+      <main className="pt-[calc(36px+env(safe-area-inset-top))]">
         <HeroSection />
         <TerminalPreview />
         <FeaturesSection />

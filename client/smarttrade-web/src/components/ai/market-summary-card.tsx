@@ -71,7 +71,7 @@ export function MarketSummaryCard() {
           <>
             {/* Title & Sentiment */}
             <div className="flex items-start justify-between gap-4">
-              <h3 className="text-[15px] font-semibold text-[var(--color-text-primary)]">
+              <h3 className="text-[15px] font-semibold text-[var(--color-text-primary)] flex-1 leading-snug">
                 {marketSummary.title}
               </h3>
               <Badge

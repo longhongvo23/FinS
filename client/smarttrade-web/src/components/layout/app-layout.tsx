@@ -84,8 +84,8 @@ export function AppLayout() {
         {/* Main Content Area */}
         <main className={cn(
           'flex-1',
-          // Mobile: smaller padding, extra bottom padding for floating nav
-          'p-4 pb-28',
+          // Mobile: padding top for fixed header (56px + safe area)
+          'p-4 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-28',
           // Desktop: larger padding
           'lg:p-6 lg:pb-6'
         )}>
@@ -136,7 +136,7 @@ export function DetailLayout() {
         {/* Content - no extra headers, pages handle their own */}
         <main className={cn(
           'flex-1',
-          'p-0 pb-24',
+          'p-0 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-24',
           'lg:p-6 lg:pb-6'
         )}>
           <Outlet />

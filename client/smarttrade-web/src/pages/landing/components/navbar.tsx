@@ -33,9 +33,9 @@ export function LandingNavbar() {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className={`fixed top-[36px] w-full z-50 transition-all duration-300 ${scrolled
-          ? 'bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-gray-200 dark:border-[#1E1E1E] shadow-sm'
-          : 'bg-transparent'
+      className={`fixed top-[calc(36px+env(safe-area-inset-top))] w-full z-50 transition-all duration-300 ${scrolled
+        ? 'bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-gray-200 dark:border-[#1E1E1E] shadow-sm'
+        : 'bg-transparent'
         }`}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">

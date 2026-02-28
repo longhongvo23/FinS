@@ -12,6 +12,7 @@ import {
   Brain,
   Newspaper,
   LucideIcon,
+  Sparkles,
 } from 'lucide-react'
 
 interface NavItem {
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { icon: Star, label: 'Watchlist', href: '/watchlist' },
   { icon: Newspaper, label: 'Tin tức', href: '/news' },
   { icon: MessageSquare, label: 'AI Chat', href: '/ai-chat' },
+  { icon: Sparkles, label: 'AI Insights', href: '/insights' },
   { icon: Brain, label: 'Research', href: '/research' },
   { icon: Bell, label: 'Thông báo', href: '/notifications', badge: 3 },
   { icon: Settings, label: 'Cài đặt', href: '/settings' },
