@@ -129,13 +129,13 @@ export function Sidebar({ className }: SidebarProps) {
       <div className="h-14 flex items-center justify-between px-4 border-b border-[var(--color-border)]">
         {!sidebarCollapsed && (
           <Link to="/dashboard">
-            <Logo size="md" />
+            <Logo size="md" hideIcon />
           </Link>
         )}
         {sidebarCollapsed && (
           <div className="flex justify-center w-full">
             <Link to="/dashboard">
-              <Logo iconOnly size="sm" />
+              <Logo iconOnly size="sm" hideIcon />
             </Link>
           </div>
         )}

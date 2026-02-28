@@ -111,7 +111,7 @@ export function MobileHeader({ title, showBack, className }: MobileHeaderProps) 
               </Button>
             ) : (
               <Link to="/dashboard">
-                <Logo size="sm" />
+                <Logo size="sm" hideIcon />
               </Link>
             )}
             {title && (
