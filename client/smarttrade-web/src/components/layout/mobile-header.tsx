@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useUIStore } from '@/stores/ui-store'
@@ -14,7 +15,19 @@ import {
   ArrowLeft,
   TrendingUp,
   Clock,
+  User,
+  LogOut,
+  Settings,
+  ChevronDown,
 } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth-store'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface MobileHeaderProps {
   title?: string
@@ -35,6 +48,7 @@ const trendingStocks = [
 export function MobileHeader({ title, showBack, className }: MobileHeaderProps) {
   const navigate = useNavigate()
   const { theme, setTheme } = useUIStore()
+  const { user, signOut } = useAuthStore()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -76,9 +90,10 @@ export function MobileHeader({ title, showBack, className }: MobileHeaderProps) 
       {/* Main Header */}
       <header
         className={cn(
-          'sticky top-0 z-30 h-14',
+          'fixed top-0 left-0 right-0 z-30 w-full',
           'bg-[var(--color-surface)]/95 backdrop-blur-sm',
           'border-b border-[var(--color-border)]',
+          'pt-[env(safe-area-inset-top)]', // Fix overlap with status bar
           className
         )}
       >
@@ -95,11 +110,8 @@ export function MobileHeader({ title, showBack, className }: MobileHeaderProps) 
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             ) : (
-              <Link to="/dashboard" className="flex items-center">
-                <span className="text-lg font-semibold tracking-tight text-[var(--color-text-primary)]">
-                  SmartTrade
-                  <span className="text-[var(--color-brand)]">.</span>
-                </span>
+              <Link to="/dashboard">
+                <Logo size="sm" />
               </Link>
             )}
             {title && (
@@ -111,16 +123,6 @@ export function MobileHeader({ title, showBack, className }: MobileHeaderProps) 
 
           {/* Right Section */}
           <div className="flex items-center gap-1">
-            {/* Search Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSearchOpen(true)}
-              className="h-8 w-8 text-[var(--color-text-tertiary)]"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-
             {/* Theme Toggle */}
             <Button
               variant="ghost"
@@ -133,6 +135,57 @@ export function MobileHeader({ title, showBack, className }: MobileHeaderProps) 
 
             {/* Notifications */}
             <NotificationCenter />
+
+            {/* Profile / Logout */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 ml-1 rounded-full bg-[var(--color-brand)]/10 flex items-center justify-center overflow-hidden"
+                >
+                  {user?.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.full_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-4 w-4 text-[var(--color-brand)]" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 mt-2 bg-[var(--color-surface)] border-[var(--color-border)]">
+                <div className="px-3 py-2">
+                  <p className="text-[14px] font-medium text-[var(--color-text-primary)]">
+                    {user?.full_name || 'Người dùng'}
+                  </p>
+                  <p className="text-[12px] text-[var(--color-text-muted)] truncate">
+                    {user?.email || ''}
+                  </p>
+                </div>
+                <DropdownMenuSeparator className="bg-[var(--color-border)]" />
+                <DropdownMenuItem onClick={() => navigate('/settings/profile')} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  Hồ sơ
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Cài đặt
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-[var(--color-border)]" />
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await signOut()
+                    navigate('/')
+                  }}
+                  className="cursor-pointer text-[var(--color-negative)] focus:text-[var(--color-negative)]"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Đăng xuất
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -145,7 +198,7 @@ export function MobileHeader({ title, showBack, className }: MobileHeaderProps) 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-50 bg-[var(--color-bg-primary)]"
+            className="fixed inset-0 z-50 bg-[var(--color-bg-primary)] pt-[env(safe-area-inset-top)]"
           >
             {/* Search Header */}
             <div className="h-14 flex items-center gap-3 px-4 border-b border-[var(--color-border)]">
@@ -283,8 +336,8 @@ export function CompactMobileHeader({
   const navigate = useNavigate()
 
   return (
-    <header className="sticky top-0 z-30 h-14 bg-[var(--color-surface)]/95 backdrop-blur-sm border-b border-[var(--color-border)]">
-      <div className="h-full flex items-center gap-3 px-4">
+    <header className="fixed top-0 left-0 right-0 z-30 w-full pt-[env(safe-area-inset-top)] bg-[var(--color-surface)]/95 backdrop-blur-sm border-b border-[var(--color-border)]">
+      <div className="h-14 flex items-center gap-3 px-4">
         <Button
           variant="ghost"
           size="icon"

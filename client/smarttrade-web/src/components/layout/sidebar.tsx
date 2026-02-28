@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/logo'
 import { useUIStore } from '@/stores/ui-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
@@ -127,12 +128,16 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Logo */}
       <div className="h-14 flex items-center justify-between px-4 border-b border-[var(--color-border)]">
         {!sidebarCollapsed && (
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <span className="text-lg font-semibold tracking-tight text-[var(--color-text-primary)]">
-              SmartTrade
-              <span className="text-[var(--color-brand)]">.</span>
-            </span>
+          <Link to="/dashboard">
+            <Logo size="md" />
           </Link>
+        )}
+        {sidebarCollapsed && (
+          <div className="flex justify-center w-full">
+            <Link to="/dashboard">
+              <Logo iconOnly size="sm" />
+            </Link>
+          </div>
         )}
 
         <Button
