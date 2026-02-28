@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { authService } from '@/services/auth-service'
 import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react'
+import { Logo } from '@/components/logo'
 
 type VerificationStatus = 'loading' | 'success' | 'error' | 'no-key'
 
@@ -75,8 +76,8 @@ export function VerifyEmailPage() {
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <div className="mx-auto w-12 h-12 rounded-xl bg-brand flex items-center justify-center mb-4">
-                        <span className="text-white font-bold text-xl">ST</span>
+                    <div className="flex justify-center mb-6">
+                        <Logo size="lg" hideIcon />
                     </div>
                     <CardTitle className="text-2xl">Xác thực tài khoản</CardTitle>
                     <CardDescription>

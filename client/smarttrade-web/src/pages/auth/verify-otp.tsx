@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { OTPInput } from '@/components/ui/otp-input'
 import { Loader2, CheckCircle, ArrowLeft, Mail } from 'lucide-react'
+import { Logo } from '@/components/logo'
 import { cn } from '@/lib/utils'
 
 const OTP_LENGTH = 6
@@ -116,8 +117,8 @@ export function VerifyOTPPage() {
             Quay lại
           </Button>
 
-          <div className="mx-auto w-16 h-16 rounded-full bg-brand/10 flex items-center justify-center mb-4">
-            <Mail className="h-8 w-8 text-brand" />
+          <div className="flex justify-center mb-6">
+            <Logo size="lg" hideIcon />
           </div>
           <CardTitle className="text-2xl">Xác thực OTP</CardTitle>
           <CardDescription>

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { authService } from '@/services/auth-service'
 import { Loader2, Eye, EyeOff, CheckCircle, XCircle, ArrowLeft, KeyRound } from 'lucide-react'
+import { Logo } from '@/components/logo'
 
 const resetPasswordSchema = z.object({
     password: z.string()
@@ -129,8 +130,8 @@ export function ResetPasswordPage() {
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <div className="mx-auto w-12 h-12 rounded-xl bg-brand flex items-center justify-center mb-4">
-                        <KeyRound className="w-6 h-6 text-white" />
+                    <div className="flex justify-center mb-6">
+                        <Logo size="lg" hideIcon />
                     </div>
                     <CardTitle className="text-2xl">Đặt lại mật khẩu</CardTitle>
                     <CardDescription>

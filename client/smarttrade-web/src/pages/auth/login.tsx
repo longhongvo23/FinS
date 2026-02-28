@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/auth-store'
 import { Loader2, Eye, EyeOff, Play, UserCircle } from 'lucide-react'
+import { Logo } from '@/components/logo'
 
 const loginSchema = z.object({
   email: z.string().email('Email không hợp lệ'),
@@ -72,11 +73,11 @@ export function LoginPage() {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-xl bg-brand flex items-center justify-center mb-4">
-            <span className="text-white font-bold text-xl">ST</span>
+          <div className="flex justify-center mb-6">
+            <Logo size="lg" hideIcon />
           </div>
           <CardTitle className="text-2xl">Đăng nhập</CardTitle>
           <CardDescription>

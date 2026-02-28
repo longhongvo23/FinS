@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { authService } from '@/services/auth-service'
 import { Loader2, CheckCircle, Eye, EyeOff, Check, X } from 'lucide-react'
+import { Logo } from '@/components/logo'
 import { cn } from '@/lib/utils'
 
 const registerSchema = z.object({
@@ -95,7 +96,7 @@ export function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
@@ -115,11 +116,11 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-xl bg-brand flex items-center justify-center mb-4">
-            <span className="text-white font-bold text-xl">ST</span>
+          <div className="flex justify-center mb-6">
+            <Logo size="lg" hideIcon />
           </div>
           <CardTitle className="text-2xl">Tạo tài khoản</CardTitle>
           <CardDescription>
