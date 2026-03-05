@@ -58,19 +58,53 @@ public class HistoricalBackfillService {
      * Uses concatMap for sequential execution to avoid race conditions
      */
     public Mono<Void> executeBackfill() {
-        log.info("Starting historical backfill for all symbols");
+        List<String> symbols = apiProperties.getStock().getSymbols();
+        int totalSymbols = symbols.size();
+
+        log.info("╔════════════════════════════════════════════════════════════════╗");
+        log.info("║  Starting historical backfill for {} symbols                   ║", totalSymbols);
+        log.info("║  Symbols: {}                                    ║", String.join(", ", symbols));
+        log.info("╚════════════════════════════════════════════════════════════════╝");
 
         String startDate = apiProperties.getCrawl().getHistorical().getStartDate();
         String endDate = LocalDate.now().format(DATE_FORMATTER);
         String interval = apiProperties.getCrawl().getHistorical().getInterval();
 
-        return Flux.fromIterable(apiProperties.getStock().getSymbols())
-                .concatMap(symbol -> backfillSymbol(symbol, startDate, endDate, interval)
-                        .delayElement(Duration.ofSeconds(1)) // Rate limiting: 1 symbol/second
-                )
+        log.info("Date range: {} to {} (interval: {})", startDate, endDate, interval);
+
+        final int[] counter = { 0 }; // Progress counter
+
+        return Flux.fromIterable(symbols)
+                .concatMap(symbol -> {
+                    counter[0]++;
+                    int currentIndex = counter[0];
+                    log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    log.info("Processing symbol {}/{}: {}", currentIndex, totalSymbols, symbol);
+                    log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+                    return backfillSymbol(symbol, startDate, endDate, interval)
+                            .doOnSuccess(
+                                    v -> log.info("✓ Symbol {}/{} ({}) completed", currentIndex, totalSymbols, symbol))
+                            .doOnError(e -> log.error("✗ Symbol {}/{} ({}) failed: {}", currentIndex, totalSymbols,
+                                    symbol, e.getMessage()))
+                            .delayElement(Duration.ofSeconds(1)); // Rate limiting: 1 symbol/second
+                })
                 .then()
-                .doOnSuccess(v -> log.info("Historical backfill completed successfully"))
-                .doOnError(error -> log.error("Historical backfill failed: {}", error.getMessage()));
+                .doOnSuccess(v -> {
+                    log.info("╔════════════════════════════════════════════════════════════════╗");
+                    log.info("║  ✓ Historical backfill completed successfully                  ║");
+                    log.info("║  Total symbols processed: {}/{}                               ║", counter[0],
+                            totalSymbols);
+                    log.info("╚════════════════════════════════════════════════════════════════╝");
+                })
+                .doOnError(error -> {
+                    log.error("╔════════════════════════════════════════════════════════════════╗");
+                    log.error("║  ✗ Historical backfill failed                                  ║");
+                    log.error("║  Processed: {}/{} symbols                                     ║", counter[0],
+                            totalSymbols);
+                    log.error("║  Error: {}                                              ║", error.getMessage());
+                    log.error("╚════════════════════════════════════════════════════════════════╝");
+                });
     }
 
     /**
@@ -79,7 +113,7 @@ public class HistoricalBackfillService {
      * If no data exists, fetches from configured startDate (2015-01-01)
      */
     private Mono<Void> backfillSymbol(String symbol, String startDate, String endDate, String interval) {
-        log.info("Starting backfill for symbol: {}", symbol);
+        log.info("→ Starting backfill for symbol: {}", symbol);
 
         // Query latest date from stockservice (no RUNNING state to avoid race
         // condition)
@@ -90,7 +124,8 @@ public class HistoricalBackfillService {
                     String fromDate;
                     if (latestDate == null || latestDate.isEmpty()) {
                         fromDate = startDate; // No data, full backfill
-                        log.info("No existing data for {}, full backfill from {}", symbol, fromDate);
+                        log.info("  ℹ No existing data for {}", symbol);
+                        log.info("  → Full backfill from {} to {}", fromDate, endDate);
                     } else {
                         // Parse and add 1 day to latest date
                         // Handle both yyyy-MM-dd and ISO8601 (yyyy-MM-ddTHH:mm:ssZ) formats
@@ -98,14 +133,14 @@ public class HistoricalBackfillService {
                         fromDate = LocalDate.parse(dateOnly, DATE_FORMATTER)
                                 .plusDays(1)
                                 .format(DATE_FORMATTER);
-                        log.info("Incremental backfill for {} from {} (latest: {})", symbol, fromDate,
-                                dateOnly);
+                        log.info("  ℹ Latest data: {}", dateOnly);
+                        log.info("  → Incremental backfill from {} to {}", fromDate, endDate);
                     }
 
                     // Check if we need to fetch anything
                     if (LocalDate.parse(fromDate, DATE_FORMATTER)
                             .isAfter(LocalDate.parse(endDate, DATE_FORMATTER))) {
-                        log.info("No new data to fetch for {} (already up to date)", symbol);
+                        log.info("  ✓ {} is already up to date (no new data to fetch)", symbol);
                         return updateJobState(symbol, JobStatus.SUCCEEDED, null).then();
                     }
 
@@ -134,12 +169,14 @@ public class HistoricalBackfillService {
      */
     private Mono<Void> saveHistoricalDataInChunks(String symbol, TimeSeriesResponse timeSeries) {
         if (timeSeries.getValues() == null || timeSeries.getValues().isEmpty()) {
+            log.info("  ⚠ No historical data returned for {}", symbol);
             return Mono.empty();
         }
 
         int totalSize = timeSeries.getValues().size();
         int chunkSize = 100;
-        log.info("Splitting {} historical prices for {} into chunks of {}", totalSize, symbol, chunkSize);
+        int totalChunks = (totalSize + chunkSize - 1) / chunkSize;
+        log.info("  → Saving {} records for {} in {} chunks", totalSize, symbol, totalChunks);
 
         return Flux.range(0, (totalSize + chunkSize - 1) / chunkSize)
                 .flatMap(i -> {
@@ -153,13 +190,14 @@ public class HistoricalBackfillService {
                     chunkResponse.setValues(chunk);
                     chunkResponse.setStatus(timeSeries.getStatus());
 
-                    log.info("Sending chunk {}/{} ({} records) for {}",
-                            i + 1, (totalSize + chunkSize - 1) / chunkSize, chunk.size(), symbol);
+                    log.info("    → Chunk {}/{}: {} records",
+                            i + 1, (totalSize + chunkSize - 1) / chunkSize, chunk.size());
 
                     return stockServiceClient.saveHistoricalPrices(symbol, chunkResponse)
                             .delayElement(Duration.ofMillis(500)); // Rate limiting between chunks
                 })
-                .then();
+                .then()
+                .doOnSuccess(v -> log.info("  ✓ Saved all {} records for {}", totalSize, symbol));
     }
 
     /**
