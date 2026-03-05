@@ -441,8 +441,8 @@ jobs:
           CERT_DIR="${{ github.workspace }}/microservices/docker-compose/mongodb-security/certs"
           mkdir -p "$CERT_DIR"
           cd "$CERT_DIR"
-          # Clear old certificates (rm works if user owns directory even if files are root-owned)
-          rm -f * || true
+          # Clear old certificates (use -rf to handle cases where ca.crt becomes a directory)
+          rm -rf * || true
           DAYS=3650
           SUBJ="/C=VN/ST=HoChiMinh/L=HoChiMinh/O=StockApp/OU=Security"
           SERVICES="gateway userservice notificationservice stockservice newsservice crawlservice aitoolsservice"
