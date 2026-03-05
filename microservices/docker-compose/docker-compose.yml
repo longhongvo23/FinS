@@ -256,6 +256,8 @@ services:
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
       - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET}
+      - APPLICATION_SECURITY_ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APPLICATION_SECURITY_ENCRYPTION_SALT=${ENCRYPTION_SALT}
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8083/management/health" ]
       interval: 10s
