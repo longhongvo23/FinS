@@ -1,5 +1,6 @@
 package com.stockapp.aitoolsservice.service.client;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.stockapp.aitoolsservice.config.ApplicationProperties;
 import com.stockapp.aitoolsservice.service.ai.GeminiClientService.StockData;
 import org.slf4j.Logger;
@@ -211,8 +212,8 @@ public class StockServiceClient {
                         Integer buy,
                         Integer hold,
                         Integer sell,
-                        Integer strongBuy,
-                        Integer strongSell,
+                        @JsonAlias("strong_buy") Integer strongBuy,
+                        @JsonAlias("strong_sell") Integer strongSell,
                         PredictionMetadata metadata,
                         String created_at) {
 
@@ -231,18 +232,24 @@ public class StockServiceClient {
                 }
 
                 /**
-                 * Get the dominant recommendation label from Prophet model
-                 * Based on strongBuy/buy/hold/sell/strongSell counts
+                 * Get the dominant recommendation label from Prophet model.
+                 * Uses the recommendation field directly (most reliable),
+                 * falls back to count-based calculation if recommendation is missing.
                  */
                 public String getDominantSignal() {
+                        // Use recommendation field directly from Prophet model
+                        if (recommendation != null && !recommendation.isBlank()) {
+                                return recommendation.toUpperCase().trim();
+                        }
+                        // Fallback: calculate from counts
+                        if (strongSell != null && strongSell > 0 && (sell == null || strongSell >= sell))
+                                return "STRONG_SELL";
+                        if (sell != null && sell > 30)
+                                return "SELL";
                         if (strongBuy != null && strongBuy > 0 && (buy == null || strongBuy >= buy))
                                 return "STRONG_BUY";
                         if (buy != null && buy > 30)
                                 return "BUY";
-                        if (sell != null && sell > 30)
-                                return "SELL";
-                        if (strongSell != null && strongSell > 0 && (sell == null || strongSell >= sell))
-                                return "STRONG_SELL";
                         return "HOLD";
                 }
         }

@@ -343,10 +343,11 @@ async def generate_recommendation(request: PredictionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/recommendation/{symbol}", response_model=Recommendation, tags=["Recommendation"])
+@app.get("/api/recommendation/{symbol}", tags=["Recommendation"])
 async def get_recommendation(symbol: str):
     """
-    Get latest recommendation for a symbol
+    Get latest recommendation for a symbol.
+    Returns explicit JSON with camelCase keys matching Java DTO.
     """
     try:
         recommendation = await mongodb_service.get_recommendation(symbol)
@@ -357,7 +358,21 @@ async def get_recommendation(symbol: str):
                 detail=f"No recommendation found for {symbol}"
             )
         
-        return Recommendation(**recommendation)
+        # Build explicit response with camelCase keys matching Java PredictionResponse record
+        metadata = recommendation.get("metadata")
+        created_at = recommendation.get("created_at")
+        
+        return {
+            "symbol": recommendation.get("symbol"),
+            "recommendation": recommendation.get("recommendation"),
+            "buy": recommendation.get("buy", 0),
+            "hold": recommendation.get("hold", 0),
+            "sell": recommendation.get("sell", 0),
+            "strongBuy": recommendation.get("strongBuy", 0),
+            "strongSell": recommendation.get("strongSell", 0),
+            "metadata": metadata if metadata else None,
+            "created_at": created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at) if created_at else None
+        }
     
     except HTTPException:
         raise

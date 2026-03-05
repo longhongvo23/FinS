@@ -414,7 +414,7 @@ services:
       - APPLICATION_FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - APPLICATION_FINNHUB_BASE_URL=${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8086/health').read()"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8087/management/health"]
       interval: 10s
       timeout: 5s
       retries: 40
