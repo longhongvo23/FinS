@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockapp.aitoolsservice.config.ApplicationProperties;
+import com.stockapp.aitoolsservice.service.client.StockServiceClient.PredictionResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -70,11 +71,13 @@ public class ResearchAIService {
 
     /**
      * Generate comprehensive research report for a watchlist stock
+     * Uses Prophet AI prediction to ensure recommendation consistency
      */
     public Mono<WatchlistStockResearch> generateWatchlistStockResearch(
             String symbol,
-            GeminiClientService.StockData stockData) {
-        String prompt = buildStockResearchPrompt(symbol, stockData);
+            GeminiClientService.StockData stockData,
+            PredictionResponse prophetPrediction) {
+        String prompt = buildStockResearchPrompt(symbol, stockData, prophetPrediction);
         return callAI(prompt)
                 .map(response -> parseJsonResponse(response, WatchlistStockResearch.class))
                 .onErrorResume(e -> {
@@ -322,53 +325,91 @@ public class ResearchAIService {
 
     // ==================== Prompt Builders ====================
 
-    private String buildStockResearchPrompt(String symbol, GeminiClientService.StockData stockData) {
+    private String buildStockResearchPrompt(String symbol, GeminiClientService.StockData stockData,
+            PredictionResponse prophetPrediction) {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
-        return String.format(
-                """
-                        QUAN TRỌNG: Chỉ trả về JSON thuần túy. KHÔNG có bất kỳ text, giải thích, hay lời chào nào trước hoặc sau JSON.
+        StringBuilder sb = new StringBuilder();
+        sb.append(
+                "QUAN TRỌNG: Chỉ trả về JSON thuần túy. KHÔNG có bất kỳ text, giải thích, hay lời chào nào trước hoặc sau JSON.\n\n");
+        sb.append(String.format("Bạn là chuyên gia phân tích cổ phiếu US. Hôm nay là %s.\n\n", today));
+        sb.append(String.format("Phân tích chi tiết cổ phiếu: %s\n", symbol));
+        sb.append(String.format("- Giá hiện tại: $%.2f\n", stockData.price()));
+        sb.append(String.format("- Biến động: %.2f%%\n", stockData.percentChange()));
+        sb.append(String.format("- Khối lượng: %d\n", stockData.volume()));
 
-                        Bạn là chuyên gia phân tích cổ phiếu US. Hôm nay là %s.
+        // Inject Prophet prediction as mandatory constraint
+        if (prophetPrediction != null) {
+            String signal = prophetPrediction.getDominantSignal();
+            sb.append("\n=== KẾT QUẢ DỰ ĐOÁN TỪ MÔ HÌNH PROPHET AI (BẮT BUỘC) ===\n");
+            sb.append("QUAN TRỌNG: Khuyến nghị (recommendation) của bạn PHẢI ĐỒNG NHẤT với kết quả Prophet AI.\n");
+            sb.append(String.format("- Prophet khuyến nghị: %s\n", signal));
+            sb.append(String.format("- Prophet scores: strongBuy=%d, buy=%d, hold=%d, sell=%d, strongSell=%d\n",
+                    prophetPrediction.strongBuy() != null ? prophetPrediction.strongBuy() : 0,
+                    prophetPrediction.buy() != null ? prophetPrediction.buy() : 0,
+                    prophetPrediction.hold() != null ? prophetPrediction.hold() : 0,
+                    prophetPrediction.sell() != null ? prophetPrediction.sell() : 0,
+                    prophetPrediction.strongSell() != null ? prophetPrediction.strongSell() : 0));
+            if (prophetPrediction.predicted_price() != null) {
+                sb.append(String.format("- Giá mục tiêu Prophet: $%.2f\n", prophetPrediction.predicted_price()));
+            }
+            if (prophetPrediction.change_percent() != null) {
+                sb.append(String.format("- Thay đổi dự đoán: %+.2f%%\n", prophetPrediction.change_percent()));
+            }
+            sb.append("→ Bạn PHẢI trả về recommendation = \"" + mapSignalToRecommendation(signal) + "\"\n");
+            if (prophetPrediction.predicted_price() != null) {
+                sb.append(String.format("→ target_price nên gần với giá mục tiêu Prophet: $%.2f\n",
+                        prophetPrediction.predicted_price()));
+            }
+        }
 
-                        Phân tích chi tiết cổ phiếu: %s
-                        - Giá hiện tại: $%.2f
-                        - Biến động: %.2f%%
-                        - Khối lượng: %d
+        sb.append(String.format("""
 
-                        Hãy phân tích toàn diện bao gồm:
-                        1. Đánh giá tổng quan (điểm 0-100)
-                        2. Khuyến nghị (BUY/HOLD/SELL)
-                        3. Phân tích kỹ thuật
-                        4. Rủi ro và cơ hội
-                        5. Mức giá mục tiêu
+                Hãy phân tích toàn diện bao gồm:
+                1. Đánh giá tổng quan (điểm 0-100)
+                2. Khuyến nghị (BUY/HOLD/SELL) - PHẢI khớp với Prophet AI
+                3. Phân tích kỹ thuật
+                4. Rủi ro và cơ hội
+                5. Mức giá mục tiêu
 
-                        CHỈ TRẢ VỀ JSON (không markdown, không ```):
-                        {
-                            "symbol": "%s",
-                            "recommendation": "BUY/HOLD/SELL",
-                            "confidence_score": 75,
-                            "current_price": %.2f,
-                            "target_price": 180.00,
-                            "upside_percentage": 15.5,
-                            "technical_score": 72,
-                            "fundamental_score": 68,
-                            "sentiment_score": 80,
-                            "summary": "Phân tích tóm tắt 2-3 câu...",
-                            "key_factors": [
-                                {"factor": "AI chip demand strong", "impact": "positive"},
-                                {"factor": "High valuation", "impact": "negative"}
-                            ],
-                            "risk_factors": ["Rủi ro 1", "Rủi ro 2"],
-                            "opportunities": ["Cơ hội 1", "Cơ hội 2"],
-                            "support_level": 140.00,
-                            "resistance_level": 170.00,
-                            "stop_loss": 135.00,
-                            "analysis_date": "%s"
-                        }
-                        """,
-                today, symbol, stockData.price(), stockData.percentChange(), stockData.volume(),
-                symbol, stockData.price(), today);
+                CHỈ TRẢ VỀ JSON (không markdown, không ```):
+                {
+                    "symbol": "%s",
+                    "recommendation": "BUY/HOLD/SELL",
+                    "confidence_score": 75,
+                    "current_price": %.2f,
+                    "target_price": 180.00,
+                    "upside_percentage": 15.5,
+                    "technical_score": 72,
+                    "fundamental_score": 68,
+                    "sentiment_score": 80,
+                    "summary": "Phân tích tóm tắt 2-3 câu...",
+                    "key_factors": [
+                        {"factor": "AI chip demand strong", "impact": "positive"},
+                        {"factor": "High valuation", "impact": "negative"}
+                    ],
+                    "risk_factors": ["Rủi ro 1", "Rủi ro 2"],
+                    "opportunities": ["Cơ hội 1", "Cơ hội 2"],
+                    "support_level": 140.00,
+                    "resistance_level": 170.00,
+                    "stop_loss": 135.00,
+                    "analysis_date": "%s"
+                }
+                """, symbol, stockData.price(), today));
+        return sb.toString();
+    }
+
+    /**
+     * Map Prophet signal to BUY/HOLD/SELL for prompt constraint
+     */
+    private String mapSignalToRecommendation(String signal) {
+        if (signal == null)
+            return "HOLD";
+        return switch (signal) {
+            case "STRONG_BUY", "BUY" -> "BUY";
+            case "STRONG_SELL", "SELL" -> "SELL";
+            default -> "HOLD";
+        };
     }
 
     private String buildWatchlistSummaryPrompt(List<GeminiClientService.StockData> stocks) {

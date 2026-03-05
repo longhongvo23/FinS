@@ -96,11 +96,12 @@ public class AIToolsResource {
 
     /**
      * POST /api/ai/research/{symbol} : Generate AI research report for a stock
+     * Integrates Prophet AI predictions for recommendation consistency
      */
     @PostMapping("/research/{symbol}")
     @Operation(summary = "Generate AI research report for a stock")
     public Mono<ResponseEntity<StockResearchReport>> generateResearchReport(@PathVariable String symbol) {
-        LOG.info("Generating research report for symbol: {}", symbol);
+        LOG.info("Generating research report for symbol: {} (with Prophet AI integration)", symbol);
 
         return stockServiceClient.getQuote(symbol)
                 .map(quote -> new StockData(
@@ -108,8 +109,16 @@ public class AIToolsResource {
                         quote.close() != null ? quote.close() : 0.0,
                         quote.percentChange() != null ? quote.percentChange() : 0.0,
                         quote.volume() != null ? quote.volume() : 0L))
-                .flatMap(stockData -> geminiClientService.generateResearchReport(symbol, stockData)
-                        .map(response -> createReport(symbol, stockData, response)))
+                .flatMap(stockData -> stockServiceClient.getPrediction(symbol)
+                        .defaultIfEmpty(new StockServiceClient.PredictionResponse(symbol, null, null, null, null, null,
+                                null, null, null))
+                        .flatMap(prediction -> {
+                            StockServiceClient.PredictionResponse pred = prediction.recommendation() != null
+                                    ? prediction
+                                    : null;
+                            return geminiClientService.generateResearchReport(symbol, stockData, pred)
+                                    .map(response -> createReport(symbol, stockData, response));
+                        }))
                 .flatMap(researchReportRepository::save)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());

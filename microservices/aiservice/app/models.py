@@ -15,11 +15,21 @@ class HistoricalPrice(BaseModel):
     volume: int
 
 
+class RecommendationMetadata(BaseModel):
+    """Metadata from Prophet prediction model"""
+    predicted_price: Optional[float] = None
+    current_price: Optional[float] = None
+    change_percent: Optional[float] = None
+    confidence_lower: Optional[float] = None
+    confidence_upper: Optional[float] = None
+
+
 class Recommendation(BaseModel):
     """Model for recommendation data matching JDL entity"""
     id: Optional[str] = Field(None, alias="_id")
     symbol: str
     period: date
+    recommendation: Optional[str] = None
     buy: int = Field(ge=0, default=0)
     hold: int = Field(ge=0, default=0)
     sell: int = Field(ge=0, default=0)
@@ -27,6 +37,8 @@ class Recommendation(BaseModel):
     strong_sell: int = Field(ge=0, default=0, alias="strongSell")
     # Company reference for relationship (optional)
     company: Optional[dict] = None
+    # Metadata from Prophet model
+    metadata: Optional[RecommendationMetadata] = None
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 

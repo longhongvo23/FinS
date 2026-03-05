@@ -186,12 +186,12 @@ public class AIToolsPublicResource {
 
     /**
      * POST /api/public/ai/research/{symbol} : Generate AI research report for a
-     * stock
+     * stock. Integrates Prophet AI predictions for recommendation consistency.
      */
     @PostMapping("/research/{symbol}")
     @Operation(summary = "Generate AI research report for a stock (public)")
     public Mono<ResponseEntity<StockResearchReport>> generateResearchReport(@PathVariable String symbol) {
-        LOG.info("Public request to generate research report for: {}", symbol);
+        LOG.info("Public request to generate research report for: {} (with Prophet AI integration)", symbol);
 
         return stockServiceClient.getQuote(symbol)
                 .map(quote -> new StockData(
@@ -199,8 +199,17 @@ public class AIToolsPublicResource {
                         quote.close() != null ? quote.close() : 0.0,
                         quote.percentChange() != null ? quote.percentChange() : 0.0,
                         quote.volume() != null ? quote.volume() : 0L))
-                .flatMap(stockData -> geminiClientService.generateResearchReport(symbol, stockData)
-                        .map(response -> createReport(symbol, stockData, response)))
+                .flatMap(stockData -> stockServiceClient.getPrediction(symbol)
+                        .defaultIfEmpty(new StockServiceClient.PredictionResponse(symbol, null, null, null, null, null,
+                                null, null, null))
+                        .flatMap(prediction -> {
+                            // Use null prediction if it was the empty default
+                            StockServiceClient.PredictionResponse pred = prediction.recommendation() != null
+                                    ? prediction
+                                    : null;
+                            return geminiClientService.generateResearchReport(symbol, stockData, pred)
+                                    .map(response -> createReport(symbol, stockData, response));
+                        }))
                 .flatMap(researchReportRepository::save)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
@@ -312,13 +321,19 @@ public class AIToolsPublicResource {
 
     /**
      * GET /api/public/ai/insights/trading-signals : Get AI trading signals
+     * Integrates Prophet AI predictions for recommendation consistency
      */
     @GetMapping("/insights/trading-signals")
     @Operation(summary = "Get AI-generated trading signals with entry/exit points")
     public Mono<ResponseEntity<InsightsAIService.TradingSignalsResponse>> getTradingSignals() {
-        LOG.info("Public request for trading signals");
+        LOG.info("Public request for trading signals (with Prophet AI integration)");
         return stockServiceClient.getStockData()
-                .flatMap(stocks -> insightsAIService.generateTradingSignals(stocks))
+                .flatMap(stocks -> stockServiceClient.getAllPredictions()
+                        .defaultIfEmpty(java.util.Map.of())
+                        .flatMap(predictions -> {
+                            LOG.info("Fetched Prophet predictions for {} symbols", predictions.size());
+                            return insightsAIService.generateTradingSignals(stocks, predictions);
+                        }))
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -402,13 +417,14 @@ public class AIToolsPublicResource {
 
     /**
      * POST /api/public/ai/research/watchlist/stock : Generate detailed research for
-     * a single stock
+     * a single stock. Integrates Prophet AI predictions for recommendation
+     * consistency.
      */
     @PostMapping("/research/watchlist/stock/{symbol}")
     @Operation(summary = "Generate detailed AI research for a single watchlist stock")
     public Mono<ResponseEntity<ResearchAIService.WatchlistStockResearch>> generateStockResearch(
             @PathVariable String symbol) {
-        LOG.info("Public request for single stock research: {}", symbol);
+        LOG.info("Public request for single stock research: {} (with Prophet AI integration)", symbol);
 
         return stockServiceClient.getQuote(symbol)
                 .map(quote -> new StockData(
@@ -416,7 +432,15 @@ public class AIToolsPublicResource {
                         quote.close() != null ? quote.close() : 0.0,
                         quote.percentChange() != null ? quote.percentChange() : 0.0,
                         quote.volume() != null ? quote.volume() : 0L))
-                .flatMap(stockData -> researchAIService.generateWatchlistStockResearch(symbol, stockData))
+                .flatMap(stockData -> stockServiceClient.getPrediction(symbol)
+                        .defaultIfEmpty(new StockServiceClient.PredictionResponse(symbol, null, null, null, null, null,
+                                null, null, null))
+                        .flatMap(prediction -> {
+                            StockServiceClient.PredictionResponse pred = prediction.recommendation() != null
+                                    ? prediction
+                                    : null;
+                            return researchAIService.generateWatchlistStockResearch(symbol, stockData, pred);
+                        }))
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }

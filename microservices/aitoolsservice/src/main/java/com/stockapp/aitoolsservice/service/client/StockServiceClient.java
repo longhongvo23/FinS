@@ -124,16 +124,46 @@ public class StockServiceClient {
         }
 
         /**
-         * Get AI predictions for a symbol (from existing aiservice)
+         * Get AI predictions for a symbol (from existing aiservice Prophet model)
          */
         public Mono<PredictionResponse> getPrediction(String symbol) {
-                // Call the existing Python aiservice
                 return WebClient.create("http://aiservice:8086")
                                 .get()
-                                .uri("/predictions/{symbol}/latest", symbol)
+                                .uri("/api/recommendation/{symbol}", symbol)
                                 .retrieve()
                                 .bodyToMono(PredictionResponse.class)
-                                .onErrorResume(e -> Mono.empty());
+                                .doOnSuccess(p -> {
+                                        if (p != null) {
+                                                LOG.info("Got Prophet prediction for {}: {} (buy={}, sell={}, hold={})",
+                                                                symbol, p.recommendation(), p.buy(), p.sell(),
+                                                                p.hold());
+                                        }
+                                })
+                                .onErrorResume(e -> {
+                                        LOG.warn("Failed to get Prophet prediction for {}: {}", symbol, e.getMessage());
+                                        return Mono.empty();
+                                });
+        }
+
+        /**
+         * Get AI predictions for all configured symbols
+         */
+        public Mono<java.util.Map<String, PredictionResponse>> getAllPredictions() {
+                return Flux.fromIterable(properties.getSymbols())
+                                .flatMap(symbol -> getPrediction(symbol)
+                                                .map(pred -> java.util.Map.entry(symbol, pred)))
+                                .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue);
+        }
+
+        /**
+         * Get AI predictions for specific symbols
+         */
+        public Mono<java.util.Map<String, PredictionResponse>> getPredictionsForSymbols(
+                        java.util.List<String> symbols) {
+                return Flux.fromIterable(symbols)
+                                .flatMap(symbol -> getPrediction(symbol)
+                                                .map(pred -> java.util.Map.entry(symbol, pred)))
+                                .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue);
         }
 
         // Response DTOs
@@ -167,11 +197,53 @@ public class StockServiceClient {
                         Long volume) {
         }
 
+        public record PredictionMetadata(
+                        Double predicted_price,
+                        Double current_price,
+                        Double change_percent,
+                        Double confidence_lower,
+                        Double confidence_upper) {
+        }
+
         public record PredictionResponse(
                         String symbol,
                         String recommendation,
-                        Double predicted_price,
-                        Double confidence,
+                        Integer buy,
+                        Integer hold,
+                        Integer sell,
+                        Integer strongBuy,
+                        Integer strongSell,
+                        PredictionMetadata metadata,
                         String created_at) {
+
+                /**
+                 * Get predicted_price from metadata if available
+                 */
+                public Double predicted_price() {
+                        return metadata != null ? metadata.predicted_price() : null;
+                }
+
+                /**
+                 * Get change_percent from metadata if available
+                 */
+                public Double change_percent() {
+                        return metadata != null ? metadata.change_percent() : null;
+                }
+
+                /**
+                 * Get the dominant recommendation label from Prophet model
+                 * Based on strongBuy/buy/hold/sell/strongSell counts
+                 */
+                public String getDominantSignal() {
+                        if (strongBuy != null && strongBuy > 0 && (buy == null || strongBuy >= buy))
+                                return "STRONG_BUY";
+                        if (buy != null && buy > 30)
+                                return "BUY";
+                        if (sell != null && sell > 30)
+                                return "SELL";
+                        if (strongSell != null && strongSell > 0 && (sell == null || strongSell >= sell))
+                                return "STRONG_SELL";
+                        return "HOLD";
+                }
         }
 }

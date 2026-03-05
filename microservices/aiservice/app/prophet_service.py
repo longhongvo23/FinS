@@ -350,6 +350,7 @@ class ProphetPredictionService:
             recommendation = {
                 'symbol': symbol,
                 'period': period_datetime,
+                'recommendation': prediction['recommendation'],
                 'buy': recommendation_counts['buy'],
                 'hold': recommendation_counts['hold'],
                 'sell': recommendation_counts['sell'],

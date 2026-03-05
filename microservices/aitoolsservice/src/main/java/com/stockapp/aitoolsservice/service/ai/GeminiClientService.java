@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockapp.aitoolsservice.config.ApplicationProperties;
+import com.stockapp.aitoolsservice.service.client.StockServiceClient.PredictionResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -89,9 +90,11 @@ public class GeminiClientService {
     /**
      * Generate research report for a specific stock
      * Returns JSON with scores, recommendation, and analysis
+     * Uses Prophet AI prediction to ensure recommendation consistency
      */
-    public Mono<ResearchReportResponse> generateResearchReport(String symbol, StockData stockData) {
-        String prompt = buildResearchReportPrompt(symbol, stockData);
+    public Mono<ResearchReportResponse> generateResearchReport(String symbol, StockData stockData,
+            PredictionResponse prophetPrediction) {
+        String prompt = buildResearchReportPrompt(symbol, stockData, prophetPrediction);
         return callGemini(prompt)
                 .map(response -> parseJsonResponse(response, ResearchReportResponse.class))
                 .onErrorResume(e -> {
@@ -356,12 +359,35 @@ public class GeminiClientService {
         return sb.toString();
     }
 
-    private String buildResearchReportPrompt(String symbol, StockData data) {
-        return String.format("""
+    private String buildResearchReportPrompt(String symbol, StockData data, PredictionResponse prophetPrediction) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("""
                 Bạn là nhà phân tích tài chính. Đánh giá cổ phiếu %s:
                 - Giá hiện tại: %.2f
                 - Thay đổi 24h: %.2f%%
                 - Volume: %d
+                """, symbol, data.price(), data.percentChange(), data.volume()));
+
+        // Inject Prophet prediction as mandatory constraint
+        if (prophetPrediction != null) {
+            String signal = prophetPrediction.getDominantSignal();
+            String mappedRec = switch (signal) {
+                case "STRONG_BUY", "BUY" -> "BUY";
+                case "STRONG_SELL", "SELL" -> "SELL";
+                default -> "HOLD";
+            };
+            sb.append("\n=== MÔ HÌNH PROPHET AI DỰ ĐOÁN (BẮT BUỘC) ===\n");
+            sb.append(String.format("Prophet khuyến nghị: %s → recommendation PHẢI = \"%s\"\n", signal, mappedRec));
+            if (prophetPrediction.predicted_price() != null) {
+                sb.append(String.format("Giá mục tiêu Prophet: $%.2f → target_price nên gần giá này\n",
+                        prophetPrediction.predicted_price()));
+            }
+            if (prophetPrediction.change_percent() != null) {
+                sb.append(String.format("Thay đổi dự đoán: %+.2f%%\n", prophetPrediction.change_percent()));
+            }
+        }
+
+        sb.append("""
 
                 Trả về JSON với format:
                 {
@@ -376,7 +402,8 @@ public class GeminiClientService {
                     "key_factors": [{"factor": "Doanh thu tăng", "impact": "positive"}],
                     "risk_factors": ["Rủi ro 1", "Rủi ro 2"]
                 }
-                """, symbol, data.price(), data.percentChange(), data.volume());
+                """);
+        return sb.toString();
     }
 
     private String buildChatPrompt(String context, String question) {

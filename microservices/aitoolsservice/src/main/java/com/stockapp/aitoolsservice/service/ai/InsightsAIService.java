@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockapp.aitoolsservice.config.ApplicationProperties;
+import com.stockapp.aitoolsservice.service.client.StockServiceClient.PredictionResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -95,10 +96,12 @@ public class InsightsAIService {
     }
 
     /**
-     * Generate Trading Signals based on technical analysis
+     * Generate Trading Signals based on technical analysis + Prophet AI predictions
      */
-    public Mono<TradingSignalsResponse> generateTradingSignals(List<GeminiClientService.StockData> stocks) {
-        String prompt = buildTradingSignalsPrompt(stocks);
+    public Mono<TradingSignalsResponse> generateTradingSignals(
+            List<GeminiClientService.StockData> stocks,
+            Map<String, PredictionResponse> prophetPredictions) {
+        String prompt = buildTradingSignalsPrompt(stocks, prophetPredictions);
         return callAI(prompt)
                 .map(response -> parseJsonResponse(response, TradingSignalsResponse.class))
                 .onErrorResume(e -> {
@@ -312,16 +315,49 @@ public class InsightsAIService {
         return sb.toString();
     }
 
-    private String buildTradingSignalsPrompt(List<GeminiClientService.StockData> stocks) {
+    private String buildTradingSignalsPrompt(
+            List<GeminiClientService.StockData> stocks,
+            Map<String, PredictionResponse> prophetPredictions) {
         StringBuilder sb = new StringBuilder();
         sb.append("Bạn là technical analyst chuyên nghiệp. Phân tích 7 mã US tech:\n\n");
 
+        sb.append("=== DỮ LIỆU THỊ TRƯỜNG HIỆN TẠI ===\n");
         for (GeminiClientService.StockData stock : stocks) {
             sb.append(String.format("- %s: $%.2f, biến động %.2f%%\n",
                     stock.symbol(), stock.price(), stock.percentChange()));
         }
 
-        sb.append("\nĐưa ra TRADING SIGNALS dựa trên phân tích kỹ thuật. Trả về JSON:\n");
+        // Inject Prophet AI predictions as MANDATORY constraint
+        if (prophetPredictions != null && !prophetPredictions.isEmpty()) {
+            sb.append("\n=== KẾT QUẢ DỰ ĐOÁN TỪ MÔ HÌNH PROPHET AI (BẮT BUỘC PHẢI TUÂN THEO) ===\n");
+            sb.append(
+                    "QUAN TRỌNG: Khuyến nghị BUY/SELL/HOLD của bạn PHẢI ĐỒNG NHẤT với kết quả Prophet AI dưới đây.\n");
+            sb.append(
+                    "Đây là kết quả từ mô hình Prophet Hybrid Ensemble (Prophet 30% + Technical Analysis 50% + Volume 20%).\n\n");
+
+            for (GeminiClientService.StockData stock : stocks) {
+                PredictionResponse pred = prophetPredictions.get(stock.symbol());
+                if (pred != null) {
+                    String signal = pred.getDominantSignal();
+                    sb.append(String.format(
+                            "- %s: Prophet khuyến nghị = %s (strongBuy=%d, buy=%d, hold=%d, sell=%d, strongSell=%d)\n",
+                            stock.symbol(), signal,
+                            pred.strongBuy() != null ? pred.strongBuy() : 0,
+                            pred.buy() != null ? pred.buy() : 0,
+                            pred.hold() != null ? pred.hold() : 0,
+                            pred.sell() != null ? pred.sell() : 0,
+                            pred.strongSell() != null ? pred.strongSell() : 0));
+                    if (pred.change_percent() != null) {
+                        sb.append(String.format("  → Giá dự đoán thay đổi: %+.2f%%\n", pred.change_percent()));
+                    }
+                    if (pred.predicted_price() != null) {
+                        sb.append(String.format("  → Giá mục tiêu Prophet: $%.2f\n", pred.predicted_price()));
+                    }
+                }
+            }
+        }
+
+        sb.append("\nĐưa ra TRADING SIGNALS. action PHẢI khớp với khuyến nghị Prophet AI ở trên. Trả về JSON:\n");
         sb.append("""
                 {
                     "signals": [
@@ -332,7 +368,7 @@ public class InsightsAIService {
                             "entry_price": 148.00,
                             "stop_loss": 140.00,
                             "take_profit": 165.00,
-                            "reason": "RSI oversold, MACD bullish crossover...",
+                            "reason": "Prophet AI dự đoán tăng X%%, RSI oversold, MACD bullish crossover...",
                             "timeframe": "1-2 tuần"
                         }
                     ],
