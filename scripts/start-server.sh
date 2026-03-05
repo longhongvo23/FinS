@@ -251,6 +251,32 @@ while [ $RETRIES -lt 12 ]; do
 done
 
 # ============================================================================
+# Step 7b: Clean stale encrypted data from MongoDB
+# ============================================================================
+# On restart, old encrypted fields (from a previous session that may have used
+# a different encryption key) can cause EncryptionException and block services.
+# Drop crawl_job_state (crawlservice will recreate on startup backfill) and
+# clear any ENC:-prefixed phone fields in company collection.
+# ============================================================================
+print_info "Cleaning stale encrypted data from MongoDB..."
+
+# Use MongoDB root credentials (defaults from docker-compose.yml)
+MONGO_ROOT_USER="admin"
+MONGO_ROOT_PASS="admin123"
+
+MONGOSH_CMD="docker exec mongodb mongosh --tls --tlsCAFile /tmp/ca.crt --tlsAllowInvalidCertificates -u $MONGO_ROOT_USER -p $MONGO_ROOT_PASS --authenticationDatabase admin --quiet"
+
+# Drop crawl_job_state collection (recreated by crawlservice startup backfill)
+$MONGOSH_CMD --eval "db.getSiblingDB('crawlservice').crawl_job_state.drop()" 2>/dev/null && \
+    print_step "Cleared crawl_job_state collection" || \
+    print_warn "Could not clear crawl_job_state (may not exist yet)"
+
+# Clear encrypted phone fields in company collection (set to null where ENC: prefix)
+$MONGOSH_CMD --eval "db.getSiblingDB('stockservice').company.updateMany({'phone': {'\$regex': '^ENC:'}}, {'\$set': {'phone': null}})" 2>/dev/null && \
+    print_step "Cleared encrypted phone fields in company collection" || \
+    print_warn "Could not clear encrypted fields in company (may not exist yet)"
+
+# ============================================================================
 # Step 8: Start application services
 # ============================================================================
 print_info "Starting application services..."

@@ -1,7 +1,6 @@
 package com.stockapp.crawlservice.domain;
 
 import com.stockapp.crawlservice.domain.enumeration.JobStatus;
-import com.stockapp.crawlservice.security.encryption.Encrypted;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
@@ -33,7 +32,6 @@ public class CrawlJobState implements Serializable {
     @Field("last_sync_status")
     private JobStatus lastSyncStatus;
 
-    @Encrypted
     @Field("error_log")
     private String errorLog;
 

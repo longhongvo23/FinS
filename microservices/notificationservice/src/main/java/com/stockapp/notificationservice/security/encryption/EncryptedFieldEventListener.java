@@ -48,7 +48,13 @@ public class EncryptedFieldEventListener extends AbstractMongoEventListener<Obje
                 Object value = field.get(source);
 
                 if (value instanceof String stringValue && encryptionService.isEncrypted(stringValue)) {
-                    field.set(source, encryptionService.decrypt(stringValue));
+                    try {
+                        field.set(source, encryptionService.decrypt(stringValue));
+                    } catch (Exception e) {
+                        LOG.warn("Failed to decrypt field '{}' — clearing value. Cause: {}", field.getName(),
+                                e.getMessage());
+                        field.set(source, null);
+                    }
                 }
             }
         });

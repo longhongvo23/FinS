@@ -79,7 +79,13 @@ public class EncryptedFieldEventListener
             field.setAccessible(true);
             Object value = field.get(entity);
             if (value instanceof String stringValue && encryptionService.isEncrypted(stringValue)) {
-                field.set(entity, encryptionService.decrypt(stringValue));
+                try {
+                    field.set(entity, encryptionService.decrypt(stringValue));
+                } catch (Exception e) {
+                    LOG.warn("Failed to decrypt field '{}' — clearing value. Cause: {}", field.getName(),
+                            e.getMessage());
+                    field.set(entity, null);
+                }
             }
         } catch (IllegalAccessException e) {
             LOG.error("Failed to decrypt field: {}", field.getName(), e);

@@ -1,7 +1,6 @@
 package com.stockapp.stockservice.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.stockapp.stockservice.security.encryption.Encrypted;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -64,7 +63,6 @@ public class Company implements Serializable {
     @Field("weburl")
     private String weburl;
 
-    @Encrypted
     @Field("phone")
     private String phone;
 
