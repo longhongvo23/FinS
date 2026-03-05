@@ -104,10 +104,64 @@ public class InsightsAIService {
         String prompt = buildTradingSignalsPrompt(stocks, prophetPredictions);
         return callAI(prompt)
                 .map(response -> parseJsonResponse(response, TradingSignalsResponse.class))
+                .map(response -> overrideTradingSignalsWithProphet(response, prophetPredictions))
                 .onErrorResume(e -> {
                     LOG.error("Error generating trading signals: {}", e.getMessage());
                     return Mono.empty();
                 });
+    }
+
+    /**
+     * Override trading signal actions with Prophet AI predictions directly.
+     * AI only provides supporting content (reason, entry/exit prices, timeframe).
+     * The BUY/SELL/HOLD decision comes 100% from Prophet model.
+     */
+    private TradingSignalsResponse overrideTradingSignalsWithProphet(
+            TradingSignalsResponse response,
+            Map<String, PredictionResponse> prophetPredictions) {
+        if (response.signals() == null || prophetPredictions == null || prophetPredictions.isEmpty()) {
+            return response;
+        }
+
+        List<TradingSignal> overriddenSignals = response.signals().stream()
+                .map(signal -> {
+                    PredictionResponse pred = prophetPredictions.get(signal.symbol());
+                    if (pred != null) {
+                        String prophetSignal = pred.getDominantSignal();
+                        String action = mapSignalToAction(prophetSignal);
+                        String strength = mapSignalToStrength(prophetSignal);
+                        LOG.info("Prophet override for {}: action={}, strength={} (raw={})",
+                                signal.symbol(), action, strength, prophetSignal);
+                        return new TradingSignal(
+                                signal.symbol(), action, strength,
+                                signal.entry_price(), signal.stop_loss(), signal.take_profit(),
+                                signal.reason(), signal.timeframe());
+                    }
+                    return signal;
+                })
+                .toList();
+
+        return new TradingSignalsResponse(overriddenSignals, response.market_bias(), response.risk_level());
+    }
+
+    private String mapSignalToAction(String signal) {
+        if (signal == null)
+            return "HOLD";
+        return switch (signal) {
+            case "STRONG_BUY", "BUY" -> "BUY";
+            case "STRONG_SELL", "SELL" -> "SELL";
+            default -> "HOLD";
+        };
+    }
+
+    private String mapSignalToStrength(String signal) {
+        if (signal == null)
+            return "WEAK";
+        return switch (signal) {
+            case "STRONG_BUY", "STRONG_SELL" -> "STRONG";
+            case "BUY", "SELL" -> "MODERATE";
+            default -> "WEAK";
+        };
     }
 
     /**
@@ -327,26 +381,19 @@ public class InsightsAIService {
                     stock.symbol(), stock.price(), stock.percentChange()));
         }
 
-        // Inject Prophet AI predictions as MANDATORY constraint
+        // Show Prophet predictions as context for AI to generate better supporting
+        // content
         if (prophetPredictions != null && !prophetPredictions.isEmpty()) {
-            sb.append("\n=== KẾT QUẢ DỰ ĐOÁN TỪ MÔ HÌNH PROPHET AI (BẮT BUỘC PHẢI TUÂN THEO) ===\n");
+            sb.append("\n=== KẾT QUẢ DỰ ĐOÁN TỪ MÔ HÌNH PROPHET AI (THAM KHẢO) ===\n");
+            sb.append("LƯU Ý: Khuyến nghị BUY/SELL/HOLD đã được hệ thống xác định từ Prophet AI.\n");
             sb.append(
-                    "QUAN TRỌNG: Khuyến nghị BUY/SELL/HOLD của bạn PHẢI ĐỒNG NHẤT với kết quả Prophet AI dưới đây.\n");
-            sb.append(
-                    "Đây là kết quả từ mô hình Prophet Hybrid Ensemble (Prophet 30% + Technical Analysis 50% + Volume 20%).\n\n");
+                    "Bạn chỉ cần tập trung viết phân tích lý do, và đưa ra entry_price, stop_loss, take_profit hợp lý.\n\n");
 
             for (GeminiClientService.StockData stock : stocks) {
                 PredictionResponse pred = prophetPredictions.get(stock.symbol());
                 if (pred != null) {
                     String signal = pred.getDominantSignal();
-                    sb.append(String.format(
-                            "- %s: Prophet khuyến nghị = %s (strongBuy=%d, buy=%d, hold=%d, sell=%d, strongSell=%d)\n",
-                            stock.symbol(), signal,
-                            pred.strongBuy() != null ? pred.strongBuy() : 0,
-                            pred.buy() != null ? pred.buy() : 0,
-                            pred.hold() != null ? pred.hold() : 0,
-                            pred.sell() != null ? pred.sell() : 0,
-                            pred.strongSell() != null ? pred.strongSell() : 0));
+                    sb.append(String.format("- %s: Prophet khuyến nghị = %s\n", stock.symbol(), signal));
                     if (pred.change_percent() != null) {
                         sb.append(String.format("  → Giá dự đoán thay đổi: %+.2f%%\n", pred.change_percent()));
                     }
@@ -357,25 +404,27 @@ public class InsightsAIService {
             }
         }
 
-        sb.append("\nĐưa ra TRADING SIGNALS. action PHẢI khớp với khuyến nghị Prophet AI ở trên. Trả về JSON:\n");
-        sb.append("""
-                {
-                    "signals": [
+        sb.append(
+                "\nĐưa ra TRADING SIGNALS. Tập trung vào reason, entry_price, stop_loss, take_profit. Trả về JSON:\n");
+        sb.append(
+                """
                         {
-                            "symbol": "NVDA",
-                            "action": "BUY/SELL/HOLD",
-                            "strength": "STRONG/MODERATE/WEAK",
-                            "entry_price": 148.00,
-                            "stop_loss": 140.00,
-                            "take_profit": 165.00,
-                            "reason": "Prophet AI dự đoán tăng X%%, RSI oversold, MACD bullish crossover...",
-                            "timeframe": "1-2 tuần"
+                            "signals": [
+                                {
+                                    "symbol": "NVDA",
+                                    "action": "BUY/SELL/HOLD",
+                                    "strength": "STRONG/MODERATE/WEAK",
+                                    "entry_price": 148.00,
+                                    "stop_loss": 140.00,
+                                    "take_profit": 165.00,
+                                    "reason": "Phân tích kỹ thuật: RSI oversold, MACD bullish crossover, giá dự đoán tăng X%%...",
+                                    "timeframe": "1-2 tuần"
+                                }
+                            ],
+                            "market_bias": "bullish/bearish/neutral",
+                            "risk_level": "low/medium/high"
                         }
-                    ],
-                    "market_bias": "bullish/bearish/neutral",
-                    "risk_level": "low/medium/high"
-                }
-                """);
+                        """);
         return sb.toString();
     }
 

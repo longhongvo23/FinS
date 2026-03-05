@@ -97,10 +97,44 @@ public class GeminiClientService {
         String prompt = buildResearchReportPrompt(symbol, stockData, prophetPrediction);
         return callGemini(prompt)
                 .map(response -> parseJsonResponse(response, ResearchReportResponse.class))
+                .map(response -> overrideResearchReportWithProphet(response, prophetPrediction))
                 .onErrorResume(e -> {
                     LOG.error("Error generating research report for {}: {}", symbol, e.getMessage());
                     return Mono.empty();
                 });
+    }
+
+    /**
+     * Override research report recommendation with Prophet AI prediction directly.
+     * AI only provides supporting content (scores, analysis, factors).
+     * The BUY/HOLD/SELL decision comes 100% from Prophet model.
+     */
+    private ResearchReportResponse overrideResearchReportWithProphet(
+            ResearchReportResponse response,
+            PredictionResponse prophetPrediction) {
+        if (prophetPrediction == null) {
+            return response;
+        }
+
+        String signal = prophetPrediction.getDominantSignal();
+        String recommendation = switch (signal) {
+            case "STRONG_BUY", "BUY" -> "BUY";
+            case "STRONG_SELL", "SELL" -> "SELL";
+            default -> "HOLD";
+        };
+
+        Double targetPrice = prophetPrediction.predicted_price() != null
+                ? prophetPrediction.predicted_price()
+                : response.target_price();
+
+        LOG.info("Prophet override for research report: recommendation={} (raw={}), target_price={}",
+                recommendation, signal, targetPrice);
+
+        return new ResearchReportResponse(
+                recommendation, targetPrice, response.upside_percentage(),
+                response.financial_score(), response.technical_score(),
+                response.sentiment_score(), response.overall_score(),
+                response.analysis_summary(), response.key_factors(), response.risk_factors());
     }
 
     /**
@@ -368,22 +402,19 @@ public class GeminiClientService {
                 - Volume: %d
                 """, symbol, data.price(), data.percentChange(), data.volume()));
 
-        // Inject Prophet prediction as mandatory constraint
+        // Show Prophet prediction as context for better analysis
         if (prophetPrediction != null) {
             String signal = prophetPrediction.getDominantSignal();
-            String mappedRec = switch (signal) {
-                case "STRONG_BUY", "BUY" -> "BUY";
-                case "STRONG_SELL", "SELL" -> "SELL";
-                default -> "HOLD";
-            };
-            sb.append("\n=== MÔ HÌNH PROPHET AI DỰ ĐOÁN (BẮT BUỘC) ===\n");
-            sb.append(String.format("Prophet khuyến nghị: %s → recommendation PHẢI = \"%s\"\n", signal, mappedRec));
+            sb.append("\n=== MÔ HÌNH PROPHET AI (THAM KHẢO) ===\n");
+            sb.append("LƯU Ý: Khuyến nghị (recommendation) đã được hệ thống xác định từ Prophet AI.\n");
+            sb.append(
+                    "Bạn chỉ cần tập trung viết phân tích nội dung: scores, analysis_summary, key_factors, risk_factors.\n");
+            sb.append(String.format("- Prophet khuyến nghị: %s\n", signal));
             if (prophetPrediction.predicted_price() != null) {
-                sb.append(String.format("Giá mục tiêu Prophet: $%.2f → target_price nên gần giá này\n",
-                        prophetPrediction.predicted_price()));
+                sb.append(String.format("- Giá mục tiêu Prophet: $%.2f\n", prophetPrediction.predicted_price()));
             }
             if (prophetPrediction.change_percent() != null) {
-                sb.append(String.format("Thay đổi dự đoán: %+.2f%%\n", prophetPrediction.change_percent()));
+                sb.append(String.format("- Thay đổi dự đoán: %+.2f%%\n", prophetPrediction.change_percent()));
             }
         }
 

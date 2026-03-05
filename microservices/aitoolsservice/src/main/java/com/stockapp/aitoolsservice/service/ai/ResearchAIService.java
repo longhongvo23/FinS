@@ -80,10 +80,48 @@ public class ResearchAIService {
         String prompt = buildStockResearchPrompt(symbol, stockData, prophetPrediction);
         return callAI(prompt)
                 .map(response -> parseJsonResponse(response, WatchlistStockResearch.class))
+                .map(response -> overrideWatchlistResearchWithProphet(response, prophetPrediction))
                 .onErrorResume(e -> {
                     LOG.error("Error generating research for {}: {}", symbol, e.getMessage());
                     return Mono.empty();
                 });
+    }
+
+    /**
+     * Override watchlist research recommendation with Prophet AI prediction
+     * directly.
+     * AI only provides supporting content (scores, summary, factors, etc.).
+     * The BUY/HOLD/SELL decision comes 100% from Prophet model.
+     */
+    private WatchlistStockResearch overrideWatchlistResearchWithProphet(
+            WatchlistStockResearch response,
+            PredictionResponse prophetPrediction) {
+        if (prophetPrediction == null) {
+            return response;
+        }
+
+        String signal = prophetPrediction.getDominantSignal();
+        String recommendation = mapSignalToRecommendation(signal);
+
+        Double targetPrice = prophetPrediction.predicted_price() != null
+                ? prophetPrediction.predicted_price()
+                : response.target_price();
+
+        Double upsidePercentage = response.current_price() != null && targetPrice != null
+                && response.current_price() > 0
+                        ? ((targetPrice - response.current_price()) / response.current_price()) * 100
+                        : response.upside_percentage();
+
+        LOG.info("Prophet override for {}: recommendation={} (raw={}), target_price={}",
+                response.symbol(), recommendation, signal, targetPrice);
+
+        return new WatchlistStockResearch(
+                response.symbol(), recommendation, response.confidence_score(),
+                response.current_price(), targetPrice, upsidePercentage,
+                response.technical_score(), response.fundamental_score(), response.sentiment_score(),
+                response.summary(), response.key_factors(), response.risk_factors(),
+                response.opportunities(), response.support_level(), response.resistance_level(),
+                response.stop_loss(), response.analysis_date());
     }
 
     /**
@@ -338,28 +376,19 @@ public class ResearchAIService {
         sb.append(String.format("- Biến động: %.2f%%\n", stockData.percentChange()));
         sb.append(String.format("- Khối lượng: %d\n", stockData.volume()));
 
-        // Inject Prophet prediction as mandatory constraint
+        // Show Prophet prediction as context for better analysis content
         if (prophetPrediction != null) {
             String signal = prophetPrediction.getDominantSignal();
-            sb.append("\n=== KẾT QUẢ DỰ ĐOÁN TỪ MÔ HÌNH PROPHET AI (BẮT BUỘC) ===\n");
-            sb.append("QUAN TRỌNG: Khuyến nghị (recommendation) của bạn PHẢI ĐỒNG NHẤT với kết quả Prophet AI.\n");
+            sb.append("\n=== MÔ HÌNH PROPHET AI (THAM KHẢO) ===\n");
+            sb.append("LƯU Ý: Khuyến nghị (recommendation) đã được hệ thống xác định từ Prophet AI.\n");
+            sb.append(
+                    "Bạn chỉ cần tập trung phân tích nội dung: scores, summary, key_factors, risk_factors, opportunities.\n");
             sb.append(String.format("- Prophet khuyến nghị: %s\n", signal));
-            sb.append(String.format("- Prophet scores: strongBuy=%d, buy=%d, hold=%d, sell=%d, strongSell=%d\n",
-                    prophetPrediction.strongBuy() != null ? prophetPrediction.strongBuy() : 0,
-                    prophetPrediction.buy() != null ? prophetPrediction.buy() : 0,
-                    prophetPrediction.hold() != null ? prophetPrediction.hold() : 0,
-                    prophetPrediction.sell() != null ? prophetPrediction.sell() : 0,
-                    prophetPrediction.strongSell() != null ? prophetPrediction.strongSell() : 0));
             if (prophetPrediction.predicted_price() != null) {
                 sb.append(String.format("- Giá mục tiêu Prophet: $%.2f\n", prophetPrediction.predicted_price()));
             }
             if (prophetPrediction.change_percent() != null) {
                 sb.append(String.format("- Thay đổi dự đoán: %+.2f%%\n", prophetPrediction.change_percent()));
-            }
-            sb.append("→ Bạn PHẢI trả về recommendation = \"" + mapSignalToRecommendation(signal) + "\"\n");
-            if (prophetPrediction.predicted_price() != null) {
-                sb.append(String.format("→ target_price nên gần với giá mục tiêu Prophet: $%.2f\n",
-                        prophetPrediction.predicted_price()));
             }
         }
 
@@ -367,10 +396,11 @@ public class ResearchAIService {
 
                 Hãy phân tích toàn diện bao gồm:
                 1. Đánh giá tổng quan (điểm 0-100)
-                2. Khuyến nghị (BUY/HOLD/SELL) - PHẢI khớp với Prophet AI
-                3. Phân tích kỹ thuật
-                4. Rủi ro và cơ hội
-                5. Mức giá mục tiêu
+                2. Phân tích kỹ thuật
+                3. Rủi ro và cơ hội
+                4. Mức giá hỗ trợ/kháng cự
+
+                LƯU Ý: Khuyến nghị BUY/HOLD/SELL sẽ được hệ thống tự xác định. Bạn chỉ cần phân tích nội dung.
 
                 CHỈ TRẢ VỀ JSON (không markdown, không ```):
                 {
