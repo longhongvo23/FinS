@@ -7,16 +7,30 @@ from loguru import logger
 
 from app.config import settings
 from app.database import mongodb_service
+from app.technical_analysis import technical_analysis
 
 
 class ProphetPredictionService:
-    """Service for stock price prediction using Prophet"""
+    """
+    Hybrid Stock Prediction Service
+    
+    Prophet-Enhanced Ensemble Model combining:
+    - Prophet (30%): Long-term trend forecasting
+    - Technical Analysis (50%): Short-term signal confirmation
+    - Volume Analysis (20%): Trade momentum validation
+    """
 
     def __init__(self):
         self.forecast_days = settings.PROPHET_FORECAST_DAYS
-        self.changepoint_prior_scale = settings.PROPHET_CHANGEPOINT_PRIOR_SCALE
-        self.seasonality_mode = settings.PROPHET_SEASONALITY_MODE
+        # Optimized hyperparameters for stock market
+        self.changepoint_prior_scale = 0.15  # Increased flexibility for market changes
+        self.seasonality_mode = 'additive'  # Better for stocks than multiplicative
         self.interval_width = settings.PROPHET_INTERVAL_WIDTH
+        
+        # Ensemble weights
+        self.prophet_weight = 0.30
+        self.technical_weight = 0.50
+        self.volume_weight = 0.20
 
     async def predict(
         self,
@@ -24,7 +38,7 @@ class ProphetPredictionService:
         forecast_days: Optional[int] = None
     ) -> Optional[Dict]:
         """
-        Predict stock price using Prophet
+        Hybrid prediction using Prophet + Technical Analysis ensemble
         
         Args:
             symbol: Stock symbol
@@ -36,10 +50,10 @@ class ProphetPredictionService:
         try:
             forecast_days = forecast_days or self.forecast_days
             
-            # Fetch historical data
+            # Fetch historical data (use 180 days for better recent trend focus)
             historical_data = await mongodb_service.get_historical_prices(
                 symbol=symbol,
-                days=365  # Use 1 year of data for training
+                days=180  # Reduced from 365 for more recent market behavior
             )
 
             if len(historical_data) < 30:
@@ -49,45 +63,90 @@ class ProphetPredictionService:
                 )
                 return None
 
-            # Prepare data for Prophet
+            # Prepare data for Prophet with enhanced features
             df = self._prepare_data(historical_data)
             
             if df is None or df.empty:
                 logger.error(f"Failed to prepare data for {symbol}")
                 return None
 
-            # Train model and forecast
+            # === PROPHET PREDICTION (30% weight) ===
             forecast_df = self._train_and_forecast(df, forecast_days)
             
             if forecast_df is None:
                 logger.error(f"Failed to generate forecast for {symbol}")
                 return None
 
-            # Calculate recommendation
             current_price = df['y'].iloc[-1]
             predicted_price = forecast_df['yhat'].iloc[-1]
-            change_percent = ((predicted_price - current_price) / current_price) * 100
+            prophet_change_percent = ((predicted_price - current_price) / current_price) * 100
+            
+            # Normalize to -1 to +1 scale
+            prophet_signal = np.tanh(prophet_change_percent / 20.0)  # Scale by 20% for normalization
+            
+            # === TECHNICAL ANALYSIS (50% weight) ===
+            # Prepare OHLCV dataframe for technical indicators
+            ta_df = df[['open', 'high', 'low', 'y', 'volume']].copy()
+            ta_df.columns = ['open', 'high', 'low', 'close', 'volume']
+            
+            technical_indicators = technical_analysis.calculate_all_indicators(ta_df)
+            technical_signal = technical_indicators.get('technical_score', 0.0)
+            
+            # === VOLUME CONFIRMATION (20% weight) ===
+            volume_signal = technical_indicators.get('volume', 0.0)
+            
+            # === ENSEMBLE COMBINATION ===
+            ensemble_score = (
+                prophet_signal * self.prophet_weight +
+                technical_signal * self.technical_weight +
+                volume_signal * self.volume_weight
+            )
+            
+            # Calculate final prediction with ensemble adjustment
+            # Adjust predicted price based on technical analysis
+            ensemble_adjustment = 1 + (ensemble_score * 0.1)  # Max ±10% adjustment
+            final_predicted_price = predicted_price * ensemble_adjustment
+            final_change_percent = ((final_predicted_price - current_price) / current_price) * 100
 
-            # Get confidence intervals
+            # Get confidence intervals (from Prophet)
             lower_bound = forecast_df['yhat_lower'].iloc[-1]
             upper_bound = forecast_df['yhat_upper'].iloc[-1]
+            
+            # Adjust confidence intervals with ensemble score
+            confidence_adjustment = abs(ensemble_score) * 0.5  # Tighter intervals with stronger signals
+            interval_width = (upper_bound - lower_bound) * (1 - confidence_adjustment)
+            lower_bound = final_predicted_price - (interval_width / 2)
+            upper_bound = final_predicted_price + (interval_width / 2)
+
+            # Get final recommendation
+            recommendation = self._get_recommendation_label(final_change_percent, ensemble_score)
 
             result = {
                 'symbol': symbol,
                 'forecast_days': forecast_days,
                 'prediction_date': (datetime.now() + timedelta(days=forecast_days)).date(),
                 'current_price': float(current_price),
-                'predicted_price': float(predicted_price),
-                'change_percent': float(change_percent),
+                'predicted_price': float(final_predicted_price),
+                'change_percent': float(final_change_percent),
                 'confidence_interval_lower': float(lower_bound),
                 'confidence_interval_upper': float(upper_bound),
-                'recommendation': self._get_recommendation_label(change_percent),
-                'created_at': datetime.utcnow()
+                'recommendation': recommendation,
+                'created_at': datetime.utcnow(),
+                # Additional metadata for transparency
+                'metadata': {
+                    'prophet_signal': float(prophet_signal),
+                    'technical_signal': float(technical_signal),
+                    'volume_signal': float(volume_signal),
+                    'ensemble_score': float(ensemble_score),
+                    'prophet_predicted_price': float(predicted_price),
+                    'model_type': 'Prophet-Enhanced Hybrid Ensemble'
+                }
             }
 
             logger.info(
-                f"Prediction for {symbol}: {current_price:.2f} -> "
-                f"{predicted_price:.2f} ({change_percent:+.2f}%)"
+                f"Hybrid Prediction for {symbol}: {current_price:.2f} -> "
+                f"{final_predicted_price:.2f} ({final_change_percent:+.2f}%) "
+                f"[Prophet: {prophet_signal:.2f}, Technical: {technical_signal:.2f}, Ensemble: {ensemble_score:.2f}]"
             )
 
             return result
@@ -97,17 +156,26 @@ class ProphetPredictionService:
             return None
 
     def _prepare_data(self, historical_data: list) -> Optional[pd.DataFrame]:
-        """Prepare data for Prophet model from time series collection"""
+        """
+        Prepare enhanced data for Prophet model with additional regressors
+        Includes volume, high-low spread, and volatility features
+        """
         try:
             # Convert to DataFrame
             df = pd.DataFrame(historical_data)
             
+            if df.empty:
+                return None
+            
             # Prophet requires 'ds' (date) and 'y' (value) columns
-            # datetime is already ISODate from time series collection
             df['ds'] = pd.to_datetime(df['datetime'])
             
-            # close is stored as string in the data, convert to float
+            # Convert OHLCV to numeric
             df['y'] = pd.to_numeric(df['close'], errors='coerce')
+            df['open'] = pd.to_numeric(df['open'], errors='coerce')
+            df['high'] = pd.to_numeric(df['high'], errors='coerce')
+            df['low'] = pd.to_numeric(df['low'], errors='coerce')
+            df['volume'] = pd.to_numeric(df['volume'], errors='coerce')
             
             # Sort by date
             df = df.sort_values('ds')
@@ -115,13 +183,32 @@ class ProphetPredictionService:
             # Remove duplicates
             df = df.drop_duplicates(subset=['ds'], keep='last')
             
-            # Keep only required columns
-            df = df[['ds', 'y']]
+            # Feature engineering for Prophet regressors
+            # 1. Volume feature (normalized)
+            df['volume_feature'] = df['volume'] / df['volume'].rolling(window=20, min_periods=5).mean()
+            df['volume_feature'] = df['volume_feature'].fillna(1.0)
             
-            # Remove NaN values
-            df = df.dropna()
+            # 2. High-Low spread (volatility indicator)
+            df['hl_spread'] = (df['high'] - df['low']) / df['y']
+            df['hl_spread'] = df['hl_spread'].fillna(0.0)
             
-            logger.debug(f"Prepared {len(df)} data points for Prophet training")
+            # 3. Price momentum (rate of change)
+            df['momentum'] = df['y'].pct_change(periods=5).fillna(0.0)
+            
+            # Remove rows with NaN in required columns
+            df = df.dropna(subset=['ds', 'y', 'volume_feature'])
+            
+            # Keep all columns for technical analysis later
+            required_cols = ['ds', 'y', 'volume_feature', 'hl_spread', 'momentum', 
+                           'open', 'high', 'low', 'volume']
+            df = df[required_cols]
+            
+            # Remove outliers (extreme price movements > 50% in one day)
+            df['price_change'] = df['y'].pct_change().abs()
+            df = df[df['price_change'] < 0.5]  # Remove extreme outliers
+            df = df.drop('price_change', axis=1)
+            
+            logger.debug(f"Prepared {len(df)} data points with enhanced features for hybrid model")
             
             return df
 
@@ -134,23 +221,47 @@ class ProphetPredictionService:
         df: pd.DataFrame,
         forecast_days: int
     ) -> Optional[pd.DataFrame]:
-        """Train Prophet model and generate forecast"""
+        """
+        Train enhanced Prophet model with additional regressors
+        Returns forecast with confidence intervals
+        """
         try:
-            # Initialize Prophet model
+            # Initialize Prophet model with optimized parameters
             model = Prophet(
                 changepoint_prior_scale=self.changepoint_prior_scale,
                 seasonality_mode=self.seasonality_mode,
                 interval_width=self.interval_width,
-                daily_seasonality=True,
+                daily_seasonality=False,  # Stocks don't have daily patterns
                 weekly_seasonality=True,
                 yearly_seasonality=True
             )
+            
+            # Add custom regressors for enhanced prediction
+            model.add_regressor('volume_feature', standardize=True)
+            model.add_regressor('hl_spread', standardize=True)
+            model.add_regressor('momentum', standardize=True)
 
             # Fit model
             model.fit(df)
 
             # Create future dataframe
             future = model.make_future_dataframe(periods=forecast_days)
+            
+            # For future dates, we need to fill regressor values
+            # Use average of recent values as proxy for future
+            last_volume = df['volume_feature'].tail(10).mean()
+            last_spread = df['hl_spread'].tail(10).mean()
+            last_momentum = df['momentum'].tail(10).mean()
+            
+            # Fill future regressor values
+            future = future.merge(
+                df[['ds', 'volume_feature', 'hl_spread', 'momentum']], 
+                on='ds', 
+                how='left'
+            )
+            future['volume_feature'].fillna(last_volume, inplace=True)
+            future['hl_spread'].fillna(last_spread, inplace=True)
+            future['momentum'].fillna(last_momentum, inplace=True)
 
             # Generate forecast
             forecast = model.predict(future)
@@ -164,8 +275,35 @@ class ProphetPredictionService:
             logger.error(f"Error training/forecasting: {e}")
             return None
 
-    def _get_recommendation_label(self, change_percent: float) -> str:
-        """Convert change percentage to recommendation label"""
+    def _get_recommendation_label(
+        self, 
+        change_percent: float, 
+        ensemble_score: float = None
+    ) -> str:
+        """
+        Convert change percentage and ensemble score to recommendation label
+        
+        Args:
+            change_percent: Predicted price change percentage
+            ensemble_score: Combined signal from all models (-1 to +1)
+            
+        Returns:
+            Recommendation label (STRONG_BUY, BUY, HOLD, SELL, STRONG_SELL)
+        """
+        # If ensemble score is provided, give it higher priority
+        if ensemble_score is not None:
+            if ensemble_score >= 0.6:
+                return "STRONG_BUY"
+            elif ensemble_score >= 0.2:
+                return "BUY"
+            elif ensemble_score >= -0.2:
+                return "HOLD"
+            elif ensemble_score >= -0.6:
+                return "SELL"
+            else:
+                return "STRONG_SELL"
+        
+        # Fallback to change_percent based thresholds
         if change_percent >= settings.STRONG_BUY_THRESHOLD:
             return "STRONG_BUY"
         elif change_percent >= settings.BUY_THRESHOLD:
@@ -299,7 +437,7 @@ class ProphetPredictionService:
         history_days: int = 90
     ) -> Optional[Dict]:
         """
-        Get forecast data for chart visualization
+        Get hybrid forecast data for chart visualization
         
         Args:
             symbol: Stock symbol
@@ -315,14 +453,14 @@ class ProphetPredictionService:
             # Fetch historical data
             historical_data = await mongodb_service.get_historical_prices(
                 symbol=symbol,
-                days=365  # Use 1 year for training
+                days=180  # Use 180 days for training (aligned with predict)
             )
 
             if len(historical_data) < 30:
                 logger.info(f"⏭️  Skipping {symbol}: Insufficient data ({len(historical_data)} days)")
                 return None
 
-            # Prepare data for Prophet
+            # Prepare data with enhanced features
             df = self._prepare_data(historical_data)
             
             if df is None or df.empty:
@@ -332,20 +470,58 @@ class ProphetPredictionService:
             # Get current price
             current_price = df['y'].iloc[-1]
 
-            # Train Prophet model
+            # === Train Prophet model with regressors ===
             model = Prophet(
                 changepoint_prior_scale=self.changepoint_prior_scale,
                 seasonality_mode=self.seasonality_mode,
                 interval_width=self.interval_width,
-                daily_seasonality=True,
+                daily_seasonality=False,  # Optimized for stocks
                 weekly_seasonality=True,
                 yearly_seasonality=True
             )
+            
+            # Add regressors (same as _train_and_forecast)
+            model.add_regressor('volume_feature', standardize=True)
+            model.add_regressor('hl_spread', standardize=True)
+            model.add_regressor('momentum', standardize=True)
+            
             model.fit(df)
 
-            # Create future dataframe (including historical for fitted values)
+            # Create future dataframe
             future = model.make_future_dataframe(periods=forecast_days)
+            
+            # Fill future regressors
+            last_volume = df['volume_feature'].tail(10).mean()
+            last_spread = df['hl_spread'].tail(10).mean()
+            last_momentum = df['momentum'].tail(10).mean()
+            
+            future = future.merge(
+                df[['ds', 'volume_feature', 'hl_spread', 'momentum']], 
+                on='ds', 
+                how='left'
+            )
+            future['volume_feature'].fillna(last_volume, inplace=True)
+            future['hl_spread'].fillna(last_spread, inplace=True)
+            future['momentum'].fillna(last_momentum, inplace=True)
+            
             forecast = model.predict(future)
+
+            # === Calculate technical analysis for ensemble adjustment ===
+            ta_df = df[['open', 'high', 'low', 'y', 'volume']].copy()
+            ta_df.columns = ['open', 'high', 'low', 'close', 'volume']
+            technical_indicators = technical_analysis.calculate_all_indicators(ta_df)
+            technical_signal = technical_indicators.get('technical_score', 0.0)
+            volume_signal = technical_indicators.get('volume', 0.0)
+            
+            # Calculate ensemble adjustment
+            prophet_change = ((forecast[forecast['ds'] > df['ds'].max()]['yhat'].iloc[-1] - current_price) / current_price) * 100
+            prophet_signal = np.tanh(prophet_change / 20.0)
+            ensemble_score = (
+                prophet_signal * self.prophet_weight +
+                technical_signal * self.technical_weight +
+                volume_signal * self.volume_weight
+            )
+            ensemble_adjustment = 1 + (ensemble_score * 0.1)
 
             # Build chart data
             chart_data = []
@@ -358,29 +534,36 @@ class ProphetPredictionService:
                 date_str = row['ds'].strftime('%Y-%m-%d')
                 forecast_row = forecast[forecast['ds'] == row['ds']]
                 
+                if not forecast_row.empty:
+                    predicted = float(forecast_row['yhat'].iloc[0]) * ensemble_adjustment
+                    lower = float(forecast_row['yhat_lower'].iloc[0]) * ensemble_adjustment
+                    upper = float(forecast_row['yhat_upper'].iloc[0]) * ensemble_adjustment
+                else:
+                    predicted = lower = upper = None
+                
                 data_point = {
                     'date': date_str,
                     'actual': float(row['y']),
-                    'predicted': float(forecast_row['yhat'].iloc[0]) if not forecast_row.empty else None,
-                    'lower': float(forecast_row['yhat_lower'].iloc[0]) if not forecast_row.empty else None,
-                    'upper': float(forecast_row['yhat_upper'].iloc[0]) if not forecast_row.empty else None,
+                    'predicted': predicted,
+                    'lower': lower,
+                    'upper': upper,
                 }
                 chart_data.append(data_point)
 
-            # Add future forecast data (no actual values)
+            # Add future forecast data (no actual values, apply ensemble adjustment)
             future_forecast = forecast[forecast['ds'] > df['ds'].max()]
             for _, row in future_forecast.iterrows():
                 data_point = {
                     'date': row['ds'].strftime('%Y-%m-%d'),
                     'actual': None,
-                    'predicted': float(row['yhat']),
-                    'lower': float(row['yhat_lower']),
-                    'upper': float(row['yhat_upper']),
+                    'predicted': float(row['yhat']) * ensemble_adjustment,
+                    'lower': float(row['yhat_lower']) * ensemble_adjustment,
+                    'upper': float(row['yhat_upper']) * ensemble_adjustment,
                 }
                 chart_data.append(data_point)
 
-            # Calculate summary
-            predicted_price = future_forecast['yhat'].iloc[-1]
+            # Calculate summary with ensemble
+            predicted_price = future_forecast['yhat'].iloc[-1] * ensemble_adjustment
             change_percent = ((predicted_price - current_price) / current_price) * 100
 
             result = {
@@ -389,12 +572,12 @@ class ProphetPredictionService:
                 'current_price': float(current_price),
                 'predicted_price': float(predicted_price),
                 'change_percent': float(change_percent),
-                'recommendation': self._get_recommendation_label(change_percent),
+                'recommendation': self._get_recommendation_label(change_percent, ensemble_score),
                 'data': chart_data,
                 'created_at': datetime.utcnow()
             }
 
-            logger.info(f"Generated forecast chart data for {symbol}: {len(chart_data)} data points")
+            logger.info(f"Generated hybrid forecast chart data for {symbol}: {len(chart_data)} data points")
             return result
 
         except Exception as e:
