@@ -160,6 +160,25 @@ export function ProphetForecastChart({
                 </div>
             </CardHeader>
             <CardContent className="space-y-4">
+                {/* Data Freshness Warning */}
+                {data.is_data_fresh === false && data.data_age_days && data.data_age_days > 1 && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30">
+                        <AlertCircle className="h-4 w-4 text-[var(--color-warning)] mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 text-xs">
+                            <p className="font-medium text-[var(--color-warning)] mb-1">
+                                Dữ liệu chưa được cập nhật
+                            </p>
+                            <p className="text-[var(--color-text-muted)]">
+                                Dự đoán dựa trên dữ liệu đến ngày{' '}
+                                <span className="font-medium">
+                                    {data.last_data_date && new Date(data.last_data_date).toLocaleDateString('vi-VN')}
+                                </span>
+                                {' '}({data.data_age_days} ngày trước). Kết quả có thể không phản ánh chính xác thị trường hiện tại.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Summary Stats */}
                 <div className="grid grid-cols-2 gap-4 p-3 rounded-lg bg-[var(--color-bg-tertiary)]">
                     <div>
@@ -329,9 +348,12 @@ export function ProphetForecastChart({
                 </div>
 
                 {/* Footer note */}
-                <p className="text-[10px] text-[var(--color-text-muted)] text-center">
-                    Dự đoán sử dụng mô hình Prophet. Kết quả chỉ mang tính tham khảo, không phải lời khuyên đầu tư.
-                </p>
+                <div className="text-[10px] text-[var(--color-text-muted)] text-center space-y-1">
+                    <p>
+                        Dự đoán sử dụng mô hình Prophet{data.last_data_date ? ` - Dữ liệu cập nhật đến ${new Date(data.last_data_date).toLocaleDateString('vi-VN')}` : ''}.
+                    </p>
+                    <p>Kết quả chỉ mang tính tham khảo, không phải lời khuyên đầu tư.</p>
+                </div>
             </CardContent>
         </Card>
     )

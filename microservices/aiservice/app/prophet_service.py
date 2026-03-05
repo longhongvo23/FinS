@@ -437,11 +437,11 @@ class ProphetPredictionService:
         history_days: int = 90
     ) -> Optional[Dict]:
         """
-        Get hybrid forecast data for chart visualization
+        Get hybrid forecast data for chart visualization (always forecasting from TODAY)
         
         Args:
             symbol: Stock symbol
-            forecast_days: Number of days to forecast
+            forecast_days: Number of days to forecast FROM TODAY
             history_days: Number of historical days to include
             
         Returns:
@@ -467,8 +467,23 @@ class ProphetPredictionService:
                 logger.error(f"Failed to prepare data for {symbol}")
                 return None
 
-            # Get current price
+            # Get last data date and current price
+            last_data_date = df['ds'].max()
             current_price = df['y'].iloc[-1]
+            today = pd.Timestamp.now().normalize()
+            
+            # Calculate days gap between last data and today
+            days_gap = (today - last_data_date).days
+            
+            # Log data freshness
+            if days_gap > 0:
+                logger.warning(f"⚠️  {symbol}: Data is {days_gap} days old (last: {last_data_date.date()}, today: {today.date()})")
+            else:
+                logger.info(f"✅ {symbol}: Data is up-to-date (last: {last_data_date.date()})")
+            
+            # Calculate total forecast periods needed
+            # We need to forecast from last data date to today + forecast_days
+            total_forecast_periods = max(days_gap, 0) + forecast_days
 
             # === Train Prophet model with regressors ===
             model = Prophet(
@@ -487,8 +502,8 @@ class ProphetPredictionService:
             
             model.fit(df)
 
-            # Create future dataframe
-            future = model.make_future_dataframe(periods=forecast_days)
+            # Create future dataframe - forecast to cover gap + requested days
+            future = model.make_future_dataframe(periods=total_forecast_periods)
             
             # Fill future regressors
             last_volume = df['volume_feature'].tail(10).mean()
@@ -550,20 +565,34 @@ class ProphetPredictionService:
                 }
                 chart_data.append(data_point)
 
-            # Add future forecast data (no actual values, apply ensemble adjustment)
-            future_forecast = forecast[forecast['ds'] > df['ds'].max()]
+            # Add future forecast data starting from last_data_date + 1 day
+            # Filter to only show from TODAY onwards (not historical predictions)
+            future_forecast = forecast[forecast['ds'] > df['ds'].max()].copy()
+            
             for _, row in future_forecast.iterrows():
-                data_point = {
-                    'date': row['ds'].strftime('%Y-%m-%d'),
-                    'actual': None,
-                    'predicted': float(row['yhat']) * ensemble_adjustment,
-                    'lower': float(row['yhat_lower']) * ensemble_adjustment,
-                    'upper': float(row['yhat_upper']) * ensemble_adjustment,
-                }
-                chart_data.append(data_point)
+                forecast_date = row['ds']
+                # Only include dates from today onwards for forecast visualization
+                if forecast_date.normalize() >= today:
+                    data_point = {
+                        'date': forecast_date.strftime('%Y-%m-%d'),
+                        'actual': None,
+                        'predicted': float(row['yhat']) * ensemble_adjustment,
+                        'lower': float(row['yhat_lower']) * ensemble_adjustment,
+                        'upper': float(row['yhat_upper']) * ensemble_adjustment,
+                    }
+                    chart_data.append(data_point)
 
             # Calculate summary with ensemble
-            predicted_price = future_forecast['yhat'].iloc[-1] * ensemble_adjustment
+            # Get prediction for today + forecast_days
+            target_date = today + pd.Timedelta(days=forecast_days)
+            target_forecast = forecast[forecast['ds'].dt.normalize() == target_date.normalize()]
+            
+            if not target_forecast.empty:
+                predicted_price = float(target_forecast['yhat'].iloc[0]) * ensemble_adjustment
+            else:
+                # Fallback to last forecast if exact date not found
+                predicted_price = float(future_forecast['yhat'].iloc[-1]) * ensemble_adjustment
+            
             change_percent = ((predicted_price - current_price) / current_price) * 100
 
             result = {
@@ -574,10 +603,17 @@ class ProphetPredictionService:
                 'change_percent': float(change_percent),
                 'recommendation': self._get_recommendation_label(change_percent, ensemble_score),
                 'data': chart_data,
-                'created_at': datetime.utcnow()
+                'created_at': datetime.utcnow(),
+                # Add data freshness info
+                'last_data_date': last_data_date.strftime('%Y-%m-%d'),
+                'data_age_days': days_gap,
+                'is_data_fresh': days_gap <= 1  # Consider data fresh if <= 1 day old
             }
 
-            logger.info(f"Generated hybrid forecast chart data for {symbol}: {len(chart_data)} data points")
+            logger.info(
+                f"Generated hybrid forecast chart data for {symbol}: {len(chart_data)} data points "
+                f"(data age: {days_gap} days, last: {last_data_date.date()})"
+            )
             return result
 
         except Exception as e:

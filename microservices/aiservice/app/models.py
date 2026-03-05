@@ -83,6 +83,10 @@ class ForecastChartResponse(BaseModel):
     recommendation: str
     data: List[ForecastDataPoint]  # Chart data points
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # Data freshness information
+    last_data_date: Optional[str] = None  # Last date of historical data
+    data_age_days: Optional[int] = None  # How many days old the data is
+    is_data_fresh: Optional[bool] = True  # Whether data is fresh (<= 1 day old)
 
 
 class HealthResponse(BaseModel):

@@ -42,6 +42,10 @@ export interface ForecastChartData {
   recommendation: 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL'
   data: ForecastDataPoint[]
   created_at: string
+  // Data freshness information
+  last_data_date?: string  // Last date of historical data (YYYY-MM-DD)
+  data_age_days?: number   // How many days old the data is
+  is_data_fresh?: boolean  // Whether data is fresh (<= 1 day old)
 }
 
 export interface RecommendationResult {
