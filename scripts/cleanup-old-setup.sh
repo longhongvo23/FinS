@@ -41,7 +41,7 @@ if [ -f "/etc/nginx/sites-enabled/default" ]; then
 fi
 
 # ============================================================================
-# Step 3: Stop any running ngrok processes
+# Step 3: Stop any running ngrok processesdddddddd
 # ============================================================================
 echo -e "${YELLOW}[3/4]${NC} Stopping manual ngrok processes..."
 pkill -f "ngrok http" 2>/dev/null || true
