@@ -90,9 +90,9 @@ function TopMoversCard() {
               variant="secondary"
               className={cn(
                 "text-[10px]",
-                data.market_mood === 'bullish' && 'bg-[var(--color-positive)]/10 text-[var(--color-positive)]',
-                data.market_mood === 'bearish' && 'bg-[var(--color-negative)]/10 text-[var(--color-negative)]',
-                data.market_mood === 'neutral' && 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
+                data.market_mood === 'bullish' && 'bg-[var(--color-positive-soft)] text-[var(--color-positive)]',
+                data.market_mood === 'bearish' && 'bg-[var(--color-negative-soft)] text-[var(--color-negative)]',
+                data.market_mood === 'neutral' && 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]'
               )}
             >
               {data.market_mood === 'bullish' ? '🐂 Bullish' :
@@ -117,7 +117,7 @@ function TopMoversCard() {
             {data.gainers?.map((stock) => (
               <div
                 key={stock.symbol}
-                className="p-3 rounded-lg bg-[var(--color-positive)]/5 border border-[var(--color-positive)]/20"
+                className="p-3 rounded-lg bg-[var(--color-positive-soft)] border border-[var(--color-positive-soft)]"
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
@@ -128,7 +128,7 @@ function TopMoversCard() {
                       {stock.name}
                     </span>
                   </div>
-                  <Badge className="bg-[var(--color-positive)]/10 text-[var(--color-positive)] text-[11px] font-mono">
+                  <Badge className="bg-[var(--color-positive-soft)] text-[var(--color-positive)] text-[11px] font-mono">
                     <ArrowUpRight className="h-3 w-3 mr-0.5" />
                     +{stock.change?.toFixed(2)}%
                   </Badge>
@@ -151,7 +151,7 @@ function TopMoversCard() {
             {data.losers?.map((stock) => (
               <div
                 key={stock.symbol}
-                className="p-3 rounded-lg bg-[var(--color-negative)]/5 border border-[var(--color-negative)]/20"
+                className="p-3 rounded-lg bg-[var(--color-negative-soft)] border border-[var(--color-negative-soft)]"
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ function TopMoversCard() {
                       {stock.name}
                     </span>
                   </div>
-                  <Badge className="bg-[var(--color-negative)]/10 text-[var(--color-negative)] text-[11px] font-mono">
+                  <Badge className="bg-[var(--color-negative-soft)] text-[var(--color-negative)] text-[11px] font-mono">
                     <ArrowDownRight className="h-3 w-3 mr-0.5" />
                     {stock.change?.toFixed(2)}%
                   </Badge>
@@ -270,7 +270,7 @@ function WeeklyOutlookCard() {
               </h4>
               <div className="flex flex-wrap gap-1">
                 {data.bullish_picks.map((symbol) => (
-                  <Badge key={symbol} variant="secondary" className="text-[10px] bg-[var(--color-positive)]/10 text-[var(--color-positive)]">
+                  <Badge key={symbol} variant="secondary" className="text-[10px] bg-[var(--color-positive-soft)] text-[var(--color-positive)]">
                     {symbol}
                   </Badge>
                 ))}
@@ -284,7 +284,7 @@ function WeeklyOutlookCard() {
               </h4>
               <div className="flex flex-wrap gap-1">
                 {data.bearish_risks.map((symbol) => (
-                  <Badge key={symbol} variant="secondary" className="text-[10px] bg-[var(--color-negative)]/10 text-[var(--color-negative)]">
+                  <Badge key={symbol} variant="secondary" className="text-[10px] bg-[var(--color-negative-soft)] text-[var(--color-negative)]">
                     {symbol}
                   </Badge>
                 ))}
@@ -378,8 +378,8 @@ function TradingSignalsCard() {
             {data.market_bias && (
               <Badge variant="secondary" className={cn(
                 "text-[10px]",
-                data.market_bias === 'bullish' && 'bg-[var(--color-positive)]/10 text-[var(--color-positive)]',
-                data.market_bias === 'bearish' && 'bg-[var(--color-negative)]/10 text-[var(--color-negative)]',
+                data.market_bias === 'bullish' && 'bg-[var(--color-positive-soft)] text-[var(--color-positive)]',
+                data.market_bias === 'bearish' && 'bg-[var(--color-negative-soft)] text-[var(--color-negative)]',
               )}>
                 {data.market_bias}
               </Badge>
@@ -387,9 +387,9 @@ function TradingSignalsCard() {
             {data.risk_level && (
               <Badge variant="secondary" className={cn(
                 "text-[10px]",
-                data.risk_level === 'low' && 'bg-[var(--color-positive)]/10 text-[var(--color-positive)]',
-                data.risk_level === 'high' && 'bg-[var(--color-negative)]/10 text-[var(--color-negative)]',
-                data.risk_level === 'medium' && 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
+                data.risk_level === 'low' && 'bg-[var(--color-positive-soft)] text-[var(--color-positive)]',
+                data.risk_level === 'high' && 'bg-[var(--color-negative-soft)] text-[var(--color-negative)]',
+                data.risk_level === 'medium' && 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]',
               )}>
                 Risk: {data.risk_level}
               </Badge>
@@ -403,9 +403,9 @@ function TradingSignalsCard() {
             key={index}
             className={cn(
               "p-4 rounded-lg border",
-              signal.action === 'BUY' && 'bg-[var(--color-positive)]/5 border-[var(--color-positive)]/20',
-              signal.action === 'SELL' && 'bg-[var(--color-negative)]/5 border-[var(--color-negative)]/20',
-              signal.action === 'HOLD' && 'bg-[var(--color-warning)]/5 border-[var(--color-warning)]/20'
+              signal.action === 'BUY' && 'bg-[var(--color-positive-soft)] border-[var(--color-positive-soft)]',
+              signal.action === 'SELL' && 'bg-[var(--color-negative-soft)] border-[var(--color-negative-soft)]',
+              signal.action === 'HOLD' && 'bg-[var(--color-warning-soft)] border-[var(--color-warning-soft)]'
             )}
           >
             <div className="flex items-center justify-between mb-2">
@@ -535,12 +535,12 @@ function CorrelationCard() {
               Tương quan thấp (đa dạng hóa)
             </h4>
             {data.low_correlation_pairs.map((pair, i) => (
-              <div key={i} className="p-2 rounded-lg bg-[var(--color-positive)]/5">
+              <div key={i} className="p-2 rounded-lg bg-[var(--color-positive-soft)]">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[13px] font-semibold">
                     {pair.pair?.join(' ↔ ')}
                   </span>
-                  <Badge variant="secondary" className="text-[10px] font-mono bg-[var(--color-positive)]/10 text-[var(--color-positive)]">
+                  <Badge variant="secondary" className="text-[10px] font-mono bg-[var(--color-positive-soft)] text-[var(--color-positive)]">
                     {(pair.correlation * 100).toFixed(0)}%
                   </Badge>
                 </div>

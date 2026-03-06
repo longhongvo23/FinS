@@ -40,6 +40,8 @@
   --color-positive-soft: rgba(14, 163, 113, 0.12);
   --color-negative: #E84545;
   --color-negative-soft: rgba(232, 69, 69, 0.12);
+  --color-warning: #D97706;
+  --color-warning-soft: rgba(217, 119, 6, 0.12);
   --color-neutral: #6B7280;
 
   /* Data visualization */
