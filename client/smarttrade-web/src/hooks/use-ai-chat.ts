@@ -21,15 +21,18 @@ function getAPIDelay(): number {
 }
 
 export function useAIChat() {
-  const {
-    messages,
-    isTyping,
-    sessionId,
-    addMessage,
-    clearMessages,
-    setIsTyping,
-    setSessionId,
-  } = useAIStore()
+  const currentUserId = useAIStore((s) => s.currentUserId)
+  const userChats = useAIStore((s) => s.userChats)
+  const isTyping = useAIStore((s) => s.isTyping)
+  const addMessage = useAIStore((s) => s.addMessage)
+  const clearMessages = useAIStore((s) => s.clearMessages)
+  const setIsTyping = useAIStore((s) => s.setIsTyping)
+  const setSessionId = useAIStore((s) => s.setSessionId)
+
+  const userId = currentUserId || 'anonymous'
+  const currentChat = userChats[userId] || { messages: [], sessionId: null }
+  const messages = currentChat.messages
+  const sessionId = currentChat.sessionId
 
   const sendMessage = useCallback(async (content: string) => {
     // Add user message

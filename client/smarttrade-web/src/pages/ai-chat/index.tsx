@@ -101,6 +101,12 @@ export function AIChatPage() {
   const storeClearMessages = useAIStore((state) => state.clearMessages)
   const setIsTyping = useAIStore((state) => state.setIsTyping)
   const setSessionId = useAIStore((state) => state.setSessionId)
+  const closeChat = useAIStore((state) => state.closeChat)
+
+  // Close mini chat panel when on full AI Chat page
+  useEffect(() => {
+    closeChat()
+  }, [closeChat])
 
   // Compute current user's messages from userChats
   const userId = currentUserId || 'anonymous'
