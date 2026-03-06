@@ -380,16 +380,28 @@ async def generate_recommendation(request: PredictionRequest):
 async def get_recommendation(symbol: str):
     """
     Get latest recommendation for a symbol.
+    If no recommendation exists, auto-generates one on-the-fly.
     Returns explicit JSON with camelCase keys matching Java DTO.
     """
     try:
         recommendation = await mongodb_service.get_recommendation(symbol)
         
         if recommendation is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No recommendation found for {symbol}"
+            # Auto-generate recommendation on-the-fly
+            logger.info(f"No recommendation for {symbol}, generating on-the-fly...")
+            recommendation_result = await prediction_service.generate_recommendation(
+                symbol=symbol
             )
+            if recommendation_result is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Unable to generate recommendation for {symbol}. "
+                           f"Insufficient historical data (minimum 30 days required)."
+                )
+            # Re-fetch from database after saving
+            recommendation = await mongodb_service.get_recommendation(symbol)
+            if recommendation is None:
+                recommendation = recommendation_result
         
         # Build explicit response with camelCase keys matching Java PredictionResponse record
         metadata = recommendation.get("metadata")

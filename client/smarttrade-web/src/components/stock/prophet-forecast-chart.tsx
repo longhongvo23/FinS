@@ -229,7 +229,7 @@ export function ProphetForecastChart({
                 {/* Chart */}
                 <div className="h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <ComposedChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="confidenceGradient" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="0%" stopColor="var(--color-brand)" stopOpacity={0.2} />
@@ -337,9 +337,10 @@ export function ProphetForecastChart({
                                     strokeDasharray="3 3"
                                     label={{
                                         value: 'Dự đoán',
-                                        position: 'top',
+                                        position: 'insideTopRight',
                                         fill: 'var(--color-warning)',
-                                        fontSize: 10,
+                                        fontSize: 11,
+                                        dy: -10,
                                     }}
                                 />
                             )}
