@@ -10,6 +10,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+
 /**
  * Client to fetch stock data from stockservice and Finnhub
  */
@@ -133,6 +135,7 @@ public class StockServiceClient {
                                 .uri("/api/recommendation/{symbol}", symbol)
                                 .retrieve()
                                 .bodyToMono(PredictionResponse.class)
+                                .timeout(Duration.ofSeconds(60))
                                 .doOnSuccess(p -> {
                                         if (p != null) {
                                                 LOG.info("Got Prophet prediction for {}: {} (buy={}, sell={}, hold={})",
@@ -152,8 +155,16 @@ public class StockServiceClient {
         public Mono<java.util.Map<String, PredictionResponse>> getAllPredictions() {
                 return Flux.fromIterable(properties.getSymbols())
                                 .flatMap(symbol -> getPrediction(symbol)
-                                                .map(pred -> java.util.Map.entry(symbol, pred)))
-                                .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue);
+                                                .map(pred -> java.util.Map.entry(symbol, pred)), 3)
+                                .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)
+                                .doOnSuccess(map -> {
+                                        if (map.isEmpty()) {
+                                                LOG.warn("Prophet predictions map is EMPTY — override will be skipped!");
+                                        } else {
+                                                LOG.info("Got Prophet predictions for {} symbols: {}", map.size(),
+                                                                map.keySet());
+                                        }
+                                });
         }
 
         /**
@@ -163,8 +174,16 @@ public class StockServiceClient {
                         java.util.List<String> symbols) {
                 return Flux.fromIterable(symbols)
                                 .flatMap(symbol -> getPrediction(symbol)
-                                                .map(pred -> java.util.Map.entry(symbol, pred)))
-                                .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue);
+                                                .map(pred -> java.util.Map.entry(symbol, pred)), 3)
+                                .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)
+                                .doOnSuccess(map -> {
+                                        if (map.isEmpty()) {
+                                                LOG.warn("Prophet predictions map is EMPTY for watchlist — override will be skipped!");
+                                        } else {
+                                                LOG.info("Got Prophet predictions for {} watchlist symbols: {}",
+                                                                map.size(), map.keySet());
+                                        }
+                                });
         }
 
         // Response DTOs

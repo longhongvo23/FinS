@@ -380,28 +380,52 @@ async def generate_recommendation(request: PredictionRequest):
 async def get_recommendation(symbol: str):
     """
     Get latest recommendation for a symbol.
-    If no recommendation exists, auto-generates one on-the-fly.
+    If no recommendation exists or is stale, auto-generates one on-the-fly.
     Returns explicit JSON with camelCase keys matching Java DTO.
     """
     try:
         recommendation = await mongodb_service.get_recommendation(symbol)
         
-        if recommendation is None:
-            # Auto-generate recommendation on-the-fly
-            logger.info(f"No recommendation for {symbol}, generating on-the-fly...")
+        # Check if recommendation is stale
+        needs_regeneration = recommendation is None
+        if recommendation is not None:
+            updated_at = recommendation.get("updated_at") or recommendation.get("created_at")
+            if updated_at:
+                age = datetime.utcnow() - updated_at
+                max_age_hours = settings.RECOMMENDATION_MAX_AGE_HOURS
+                if age.total_seconds() > max_age_hours * 3600:
+                    logger.info(
+                        f"Recommendation for {symbol} is stale "
+                        f"(age={age}, max={max_age_hours}h), regenerating..."
+                    )
+                    needs_regeneration = True
+            else:
+                # No timestamp info — treat as stale
+                needs_regeneration = True
+        
+        if needs_regeneration:
+            reason = "stale" if recommendation is not None else "missing"
+            logger.info(f"Recommendation for {symbol} is {reason}, generating on-the-fly...")
             recommendation_result = await prediction_service.generate_recommendation(
                 symbol=symbol
             )
             if recommendation_result is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Unable to generate recommendation for {symbol}. "
-                           f"Insufficient historical data (minimum 30 days required)."
-                )
-            # Re-fetch from database after saving
-            recommendation = await mongodb_service.get_recommendation(symbol)
-            if recommendation is None:
-                recommendation = recommendation_result
+                if recommendation is not None:
+                    # Regeneration failed but we have stale data — use it as fallback
+                    logger.warning(
+                        f"Failed to regenerate for {symbol}, using stale recommendation"
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Unable to generate recommendation for {symbol}. "
+                               f"Insufficient historical data (minimum 30 days required)."
+                    )
+            else:
+                # Re-fetch from database after saving
+                recommendation = await mongodb_service.get_recommendation(symbol)
+                if recommendation is None:
+                    recommendation = recommendation_result
         
         # Build explicit response with camelCase keys matching Java PredictionResponse record
         metadata = recommendation.get("metadata")

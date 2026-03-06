@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     SELL_THRESHOLD: float = -5.0
     STRONG_SELL_THRESHOLD: float = -10.0
 
+    # Recommendation Cache
+    RECOMMENDATION_MAX_AGE_HOURS: int = 4  # Re-generate if older than this
+
     # Scheduling
     PREDICTION_CRON_SCHEDULE: str = "0 0 * * *"
     AUTO_PREDICTION_ENABLED: bool = True
