@@ -36,9 +36,11 @@ async function fetchFullReport(symbol: string) {
 
   if (report) {
     const ratingMap: Record<string, string> = {
+      'STRONG_BUY': 'strong_buy',
       'BUY': 'buy',
-      'SELL': 'sell',
       'HOLD': 'hold',
+      'SELL': 'sell',
+      'STRONG_SELL': 'strong_sell',
     }
 
     return {

@@ -169,8 +169,8 @@ public class ResearchAIService {
         int bullish = 0, bearish = 0, neutral = 0;
         for (StockRecommendation rec : overriddenRecs) {
             switch (rec.action() != null ? rec.action().toUpperCase() : "") {
-                case "BUY" -> bullish++;
-                case "SELL" -> bearish++;
+                case "STRONG_BUY", "BUY" -> bullish++;
+                case "STRONG_SELL", "SELL" -> bearish++;
                 default -> neutral++;
             }
         }
@@ -490,8 +490,10 @@ public class ResearchAIService {
         if (signal == null)
             return "HOLD";
         return switch (signal) {
-            case "STRONG_BUY", "BUY" -> "BUY";
-            case "STRONG_SELL", "SELL" -> "SELL";
+            case "STRONG_BUY" -> "STRONG_BUY";
+            case "BUY" -> "BUY";
+            case "STRONG_SELL" -> "STRONG_SELL";
+            case "SELL" -> "SELL";
             default -> "HOLD";
         };
     }
@@ -525,7 +527,8 @@ public class ResearchAIService {
         }
 
         sb.append("\n=== QUAN TRỌNG ===\n");
-        sb.append("Khuyến nghị BUY/HOLD/SELL cho mỗi cổ phiếu PHẢI tuân theo Prophet AI ở trên.\n");
+        sb.append(
+                "Khuyến nghị STRONG_BUY/BUY/HOLD/SELL/STRONG_SELL cho mỗi cổ phiếu PHẢI tuân theo Prophet AI ở trên.\n");
         sb.append("Bạn chỉ phân tích nội dung: summary, top_pick_reason, worst_reason, sector_analysis.\n\n");
 
         sb.append("""
@@ -544,7 +547,7 @@ public class ResearchAIService {
                     "worst_reason": "Lý do hoạt động kém...",
                     "summary": "Tổng quan ngắn gọn về watchlist 2-3 câu...",
                     "recommendations": [
-                        {"symbol": "NVDA", "action": "BUY", "priority": 1},
+                        {"symbol": "NVDA", "action": "STRONG_BUY/BUY/HOLD/SELL/STRONG_SELL", "priority": 1},
                         {"symbol": "AAPL", "action": "HOLD", "priority": 2}
                     ],
                     "sector_analysis": "Phân tích theo ngành..."

@@ -425,16 +425,20 @@ function RecommendationCard({
     recommendation: { symbol: string; action: string; priority: number }
     onClick: () => void
 }) {
-    const actionColors = {
-        BUY: 'bg-success/10 border-success/30 text-success',
-        SELL: 'bg-danger/10 border-danger/30 text-danger',
-        HOLD: 'bg-warning/10 border-warning/30 text-warning',
+    const actionColors: Record<string, string> = {
+        STRONG_BUY: 'bg-[var(--color-strong-positive-soft)] border-[var(--color-strong-positive-soft)] text-[var(--color-strong-positive)]',
+        BUY: 'bg-[var(--color-positive-soft)] border-[var(--color-positive-soft)] text-[var(--color-positive)]',
+        HOLD: 'bg-[var(--color-warning-soft)] border-[var(--color-warning-soft)] text-[var(--color-warning)]',
+        SELL: 'bg-[var(--color-negative-soft)] border-[var(--color-negative-soft)] text-[var(--color-negative)]',
+        STRONG_SELL: 'bg-[var(--color-strong-negative-soft)] border-[var(--color-strong-negative-soft)] text-[var(--color-strong-negative)]',
     }
 
-    const actionLabels = {
+    const actionLabels: Record<string, string> = {
+        STRONG_BUY: '🟢 MUA MẠNH',
         BUY: '🟢 MUA',
-        SELL: '🔴 BÁN',
         HOLD: '🟡 GIỮ',
+        SELL: '🔴 BÁN',
+        STRONG_SELL: '🔴 BÁN MẠNH',
     }
 
     return (

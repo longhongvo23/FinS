@@ -398,69 +398,69 @@ function TradingSignalsCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {data.signals.map((signal, index) => (
-          <div
-            key={index}
-            className={cn(
-              "p-4 rounded-lg border",
-              signal.action === 'BUY' && 'bg-[var(--color-positive-soft)] border-[var(--color-positive-soft)]',
-              signal.action === 'SELL' && 'bg-[var(--color-negative-soft)] border-[var(--color-negative-soft)]',
-              signal.action === 'HOLD' && 'bg-[var(--color-warning-soft)] border-[var(--color-warning-soft)]'
-            )}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[16px] font-bold">{signal.symbol}</span>
-                <Badge className={cn(
-                  "text-[11px] font-semibold",
-                  signal.action === 'BUY' && 'bg-[var(--color-positive)] text-white',
-                  signal.action === 'SELL' && 'bg-[var(--color-negative)] text-white',
-                  signal.action === 'HOLD' && 'bg-[var(--color-warning)] text-white'
-                )}>
-                  {signal.action}
-                </Badge>
-                {signal.strength && (
-                  <Badge variant="outline" className="text-[10px]">
-                    {signal.strength}
+        {data.signals.map((signal, index) => {
+          const actionConfig: Record<string, { bg: string; border: string; badge: string; label: string }> = {
+            STRONG_BUY: { bg: 'bg-[var(--color-strong-positive-soft)]', border: 'border-[var(--color-strong-positive-soft)]', badge: 'bg-[var(--color-strong-positive)] text-white', label: 'MUA MẠNH' },
+            BUY: { bg: 'bg-[var(--color-positive-soft)]', border: 'border-[var(--color-positive-soft)]', badge: 'bg-[var(--color-positive)] text-white', label: 'MUA' },
+            HOLD: { bg: 'bg-[var(--color-warning-soft)]', border: 'border-[var(--color-warning-soft)]', badge: 'bg-[var(--color-warning)] text-white', label: 'GIỮ' },
+            SELL: { bg: 'bg-[var(--color-negative-soft)]', border: 'border-[var(--color-negative-soft)]', badge: 'bg-[var(--color-negative)] text-white', label: 'BÁN' },
+            STRONG_SELL: { bg: 'bg-[var(--color-strong-negative-soft)]', border: 'border-[var(--color-strong-negative-soft)]', badge: 'bg-[var(--color-strong-negative)] text-white', label: 'BÁN MẠNH' },
+          }
+          const config = actionConfig[signal.action] || actionConfig.HOLD
+          return (
+            <div
+              key={index}
+              className={cn("p-4 rounded-lg border", config.bg, config.border)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[16px] font-bold">{signal.symbol}</span>
+                  <Badge className={cn("text-[11px] font-semibold", config.badge)}>
+                    {config.label}
                   </Badge>
+                  {signal.strength && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {signal.strength}
+                    </Badge>
+                  )}
+                </div>
+                {signal.timeframe && (
+                  <span className="text-[11px] text-[var(--color-text-muted)] flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {signal.timeframe}
+                  </span>
                 )}
               </div>
-              {signal.timeframe && (
-                <span className="text-[11px] text-[var(--color-text-muted)] flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {signal.timeframe}
-                </span>
+
+              <div className="grid grid-cols-3 gap-3 mb-2 text-[11px]">
+                {signal.entry_price && (
+                  <div>
+                    <span className="text-[var(--color-text-muted)]">Entry</span>
+                    <p className="font-mono font-semibold">${signal.entry_price.toFixed(2)}</p>
+                  </div>
+                )}
+                {signal.stop_loss && (
+                  <div>
+                    <span className="text-[var(--color-negative)]">Stop Loss</span>
+                    <p className="font-mono font-semibold">${signal.stop_loss.toFixed(2)}</p>
+                  </div>
+                )}
+                {signal.take_profit && (
+                  <div>
+                    <span className="text-[var(--color-positive)]">Take Profit</span>
+                    <p className="font-mono font-semibold">${signal.take_profit.toFixed(2)}</p>
+                  </div>
+                )}
+              </div>
+
+              {signal.reason && (
+                <p className="text-[12px] text-[var(--color-text-secondary)]">
+                  {signal.reason}
+                </p>
               )}
             </div>
-
-            <div className="grid grid-cols-3 gap-3 mb-2 text-[11px]">
-              {signal.entry_price && (
-                <div>
-                  <span className="text-[var(--color-text-muted)]">Entry</span>
-                  <p className="font-mono font-semibold">${signal.entry_price.toFixed(2)}</p>
-                </div>
-              )}
-              {signal.stop_loss && (
-                <div>
-                  <span className="text-[var(--color-negative)]">Stop Loss</span>
-                  <p className="font-mono font-semibold">${signal.stop_loss.toFixed(2)}</p>
-                </div>
-              )}
-              {signal.take_profit && (
-                <div>
-                  <span className="text-[var(--color-positive)]">Take Profit</span>
-                  <p className="font-mono font-semibold">${signal.take_profit.toFixed(2)}</p>
-                </div>
-              )}
-            </div>
-
-            {signal.reason && (
-              <p className="text-[12px] text-[var(--color-text-secondary)]">
-                {signal.reason}
-              </p>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </CardContent>
     </Card>
   )

@@ -148,8 +148,10 @@ public class InsightsAIService {
         if (signal == null)
             return "HOLD";
         return switch (signal) {
-            case "STRONG_BUY", "BUY" -> "BUY";
-            case "STRONG_SELL", "SELL" -> "SELL";
+            case "STRONG_BUY" -> "STRONG_BUY";
+            case "BUY" -> "BUY";
+            case "STRONG_SELL" -> "STRONG_SELL";
+            case "SELL" -> "SELL";
             default -> "HOLD";
         };
     }
@@ -412,7 +414,7 @@ public class InsightsAIService {
                             "signals": [
                                 {
                                     "symbol": "NVDA",
-                                    "action": "BUY/SELL/HOLD",
+                                    "action": "STRONG_BUY/BUY/HOLD/SELL/STRONG_SELL",
                                     "strength": "STRONG/MODERATE/WEAK",
                                     "entry_price": 148.00,
                                     "stop_loss": 140.00,
