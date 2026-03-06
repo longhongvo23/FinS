@@ -515,6 +515,13 @@ jobs:
         working-directory: microservices/docker-compose
         run: docker compose down --remove-orphans 2>/dev/null || true
 
+      - name: Pull latest images
+        working-directory: microservices/docker-compose
+        run: |
+          echo "📦 Pulling latest images from GHCR..."
+          docker compose pull --ignore-buildable 2>/dev/null || docker compose pull || true
+          echo "✅ Images pulled"
+
       - name: Deploy services
         working-directory: microservices/docker-compose
         run: |

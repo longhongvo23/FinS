@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 from loguru import logger
 import sys
@@ -380,67 +380,90 @@ async def generate_recommendation(request: PredictionRequest):
 async def get_recommendation(symbol: str):
     """
     Get latest recommendation for a symbol.
-    If no recommendation exists or is stale, auto-generates one on-the-fly.
+    Always runs fresh prediction using the SAME code path as /api/forecast
+    to ensure consistency. Saves result to DB for caching by batch jobs.
     Returns explicit JSON with camelCase keys matching Java DTO.
     """
     try:
-        recommendation = await mongodb_service.get_recommendation(symbol)
+        # Always run fresh prediction using the SAME function as /api/forecast
+        # This guarantees both endpoints return identical recommendations
+        logger.info(f"Generating fresh recommendation for {symbol}...")
+        forecast_result = await prediction_service.get_forecast_chart_data(
+            symbol=symbol
+        )
         
-        # Check if recommendation is stale
-        needs_regeneration = recommendation is None
-        if recommendation is not None:
-            updated_at = recommendation.get("updated_at") or recommendation.get("created_at")
-            if updated_at:
-                age = datetime.utcnow() - updated_at
-                max_age_hours = settings.RECOMMENDATION_MAX_AGE_HOURS
-                if age.total_seconds() > max_age_hours * 3600:
-                    logger.info(
-                        f"Recommendation for {symbol} is stale "
-                        f"(age={age}, max={max_age_hours}h), regenerating..."
-                    )
-                    needs_regeneration = True
-            else:
-                # No timestamp info — treat as stale
-                needs_regeneration = True
-        
-        if needs_regeneration:
-            reason = "stale" if recommendation is not None else "missing"
-            logger.info(f"Recommendation for {symbol} is {reason}, generating on-the-fly...")
-            recommendation_result = await prediction_service.generate_recommendation(
-                symbol=symbol
+        if forecast_result is None:
+            # Fallback to cached recommendation if fresh prediction fails
+            recommendation = await mongodb_service.get_recommendation(symbol)
+            if recommendation is not None:
+                logger.warning(
+                    f"Fresh prediction failed for {symbol}, using cached recommendation"
+                )
+                metadata = recommendation.get("metadata")
+                created_at = recommendation.get("created_at")
+                return {
+                    "symbol": recommendation.get("symbol"),
+                    "recommendation": recommendation.get("recommendation"),
+                    "buy": recommendation.get("buy", 0),
+                    "hold": recommendation.get("hold", 0),
+                    "sell": recommendation.get("sell", 0),
+                    "strongBuy": recommendation.get("strongBuy", 0),
+                    "strongSell": recommendation.get("strongSell", 0),
+                    "metadata": metadata if metadata else None,
+                    "created_at": created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at) if created_at else None
+                }
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unable to generate recommendation for {symbol}. "
+                       f"Insufficient historical data (minimum 30 days required)."
             )
-            if recommendation_result is None:
-                if recommendation is not None:
-                    # Regeneration failed but we have stale data — use it as fallback
-                    logger.warning(
-                        f"Failed to regenerate for {symbol}, using stale recommendation"
-                    )
-                else:
-                    raise HTTPException(
-                        status_code=404,
-                        detail=f"Unable to generate recommendation for {symbol}. "
-                               f"Insufficient historical data (minimum 30 days required)."
-                    )
-            else:
-                # Re-fetch from database after saving
-                recommendation = await mongodb_service.get_recommendation(symbol)
-                if recommendation is None:
-                    recommendation = recommendation_result
         
-        # Build explicit response with camelCase keys matching Java PredictionResponse record
-        metadata = recommendation.get("metadata")
-        created_at = recommendation.get("created_at")
+        # Extract recommendation from forecast result
+        rec_label = forecast_result.get("recommendation", "HOLD")
+        change_percent = forecast_result.get("change_percent", 0.0)
+        
+        # Convert to analyst-style counts and save to DB
+        recommendation_counts = prediction_service._prediction_to_counts(
+            rec_label, change_percent
+        )
+        
+        # Build recommendation document to save
+        forecast_days = forecast_result.get("forecast_days", settings.PROPHET_FORECAST_DAYS)
+        period_datetime = datetime.utcnow() + timedelta(days=forecast_days)
+        
+        rec_doc = {
+            'symbol': symbol,
+            'period': period_datetime,
+            'recommendation': rec_label,
+            'buy': recommendation_counts['buy'],
+            'hold': recommendation_counts['hold'],
+            'sell': recommendation_counts['sell'],
+            'strongBuy': recommendation_counts['strong_buy'],
+            'strongSell': recommendation_counts['strong_sell'],
+            'created_at': datetime.utcnow(),
+            'updated_at': datetime.utcnow(),
+            'metadata': {
+                'predicted_price': forecast_result.get('predicted_price'),
+                'current_price': forecast_result.get('current_price'),
+                'change_percent': change_percent,
+                'confidence_lower': None,
+                'confidence_upper': None
+            }
+        }
+        
+        # Save to DB in background (don't block response)
+        await mongodb_service.save_recommendation(rec_doc)
         
         return {
-            "symbol": recommendation.get("symbol"),
-            "recommendation": recommendation.get("recommendation"),
-            "buy": recommendation.get("buy", 0),
-            "hold": recommendation.get("hold", 0),
-            "sell": recommendation.get("sell", 0),
-            "strongBuy": recommendation.get("strongBuy", 0),
-            "strongSell": recommendation.get("strongSell", 0),
-            "metadata": metadata if metadata else None,
-            "created_at": created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at) if created_at else None
+            "symbol": symbol,
+            "recommendation": rec_label,
+            "buy": recommendation_counts['buy'],
+            "hold": recommendation_counts['hold'],
+            "sell": recommendation_counts['sell'],
+            "strongBuy": recommendation_counts['strong_buy'],
+            "strongSell": recommendation_counts['strong_sell'],
+            "metadata": rec_doc['metadata'],
+            "created_at": rec_doc['created_at'].isoformat()
         }
     
     except HTTPException:
