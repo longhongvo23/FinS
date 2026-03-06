@@ -14,7 +14,8 @@ from app.models import (
     BatchPredictionRequest,
     HealthResponse,
     Recommendation,
-    ForecastChartResponse
+    ForecastChartResponse,
+    BacktestResponse
 )
 from app.database import mongodb_service
 from app.prophet_service import prediction_service
@@ -240,7 +241,7 @@ async def predict_stock(request: PredictionRequest):
 @app.get("/api/forecast/{symbol}", response_model=ForecastChartResponse, tags=["Prediction"])
 async def get_forecast_chart(
     symbol: str,
-    forecast_days: Optional[int] = Query(30, ge=1, le=90, description="Number of days to forecast"),
+    forecast_days: Optional[int] = Query(14, ge=1, le=90, description="Number of days to forecast"),
     history_days: Optional[int] = Query(90, ge=30, le=365, description="Number of historical days to include")
 ):
     """
@@ -293,6 +294,38 @@ async def predict_batch(
     
     except Exception as e:
         logger.error(f"Error in batch predict endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/backtest/{symbol}", response_model=BacktestResponse, tags=["Prediction"])
+async def backtest_symbol(
+    symbol: str,
+    forecast_days: Optional[int] = Query(14, ge=1, le=30, description="Forecast days per window"),
+    num_windows: Optional[int] = Query(5, ge=2, le=10, description="Number of test windows"),
+):
+    """
+    Run walk-forward backtesting for a symbol.
+    Trains on historical subsets and compares predictions with actual prices.
+    """
+    try:
+        result = await prediction_service.backtest(
+            symbol=symbol.upper(),
+            forecast_days=forecast_days,
+            num_windows=num_windows,
+        )
+        
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unable to run backtest for {symbol}. Insufficient historical data."
+            )
+        
+        return BacktestResponse(**result)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in backtest endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     KAFKA_AUTO_CREATE_TOPICS: bool = True
 
     # Prophet Model
-    PROPHET_FORECAST_DAYS: int = 30
+    PROPHET_FORECAST_DAYS: int = 14
     PROPHET_CHANGEPOINT_PRIOR_SCALE: float = 0.05
     PROPHET_SEASONALITY_MODE: str = "multiplicative"
     PROPHET_INTERVAL_WIDTH: float = 0.95
@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # Service URLs
     NOTIFICATION_SERVICE_URL: str = "http://notificationservice:8085"
     USER_SERVICE_URL: str = "http://userservice:8081"
+    NEWS_SERVICE_URL: str = "http://newsservice:8084"
 
     class Config:
         env_file = ".env"

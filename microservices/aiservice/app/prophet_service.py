@@ -8,6 +8,8 @@ from loguru import logger
 from app.config import settings
 from app.database import mongodb_service
 from app.technical_analysis import technical_analysis
+from app.sentiment_service import sentiment_service
+from app.xgboost_service import xgboost_service
 
 
 class ProphetPredictionService:
@@ -27,10 +29,12 @@ class ProphetPredictionService:
         self.seasonality_mode = 'additive'  # Additive prevents trend amplification
         self.interval_width = settings.PROPHET_INTERVAL_WIDTH
         
-        # Ensemble weights
-        self.prophet_weight = 0.30
-        self.technical_weight = 0.50
-        self.volume_weight = 0.20
+        # Ensemble weights (total = 1.0)
+        self.prophet_weight = 0.20
+        self.xgboost_weight = 0.15
+        self.technical_weight = 0.35
+        self.volume_weight = 0.10
+        self.sentiment_weight = 0.20
         
         # Trend dampening: blend Prophet prediction toward current price
         # 0.0 = 100% Prophet, 1.0 = 100% current price (no change)
@@ -40,6 +44,10 @@ class ProphetPredictionService:
         # Realistic forecast constraints (safety net)
         self.max_annual_volatility = 0.60
         self.absolute_max_change_pct = 0.30
+        
+        # Confidence decay: day 1 ≈ 70%, last day ≈ 35%
+        self.confidence_day1 = 70.0
+        self.confidence_min = 35.0
 
     async def predict(
         self,
@@ -112,14 +120,22 @@ class ProphetPredictionService:
             technical_indicators = technical_analysis.calculate_all_indicators(ta_df)
             technical_signal = technical_indicators.get('technical_score', 0.0)
             
-            # === VOLUME CONFIRMATION (20% weight) ===
+            # === VOLUME CONFIRMATION (10% weight) ===
             volume_signal = technical_indicators.get('volume', 0.0)
+            
+            # === SENTIMENT ANALYSIS (20% weight) ===
+            sentiment_signal = await sentiment_service.get_sentiment_score(symbol)
+            
+            # === XGBOOST MODEL (15% weight) ===
+            xgboost_signal = xgboost_service.get_signal(df, forecast_days)
             
             # === ENSEMBLE COMBINATION ===
             ensemble_score = (
                 prophet_signal * self.prophet_weight +
+                xgboost_signal * self.xgboost_weight +
                 technical_signal * self.technical_weight +
-                volume_signal * self.volume_weight
+                volume_signal * self.volume_weight +
+                sentiment_signal * self.sentiment_weight
             )
             
             # Calculate final prediction with ensemble adjustment
@@ -161,11 +177,13 @@ class ProphetPredictionService:
                 # Additional metadata for transparency
                 'metadata': {
                     'prophet_signal': float(prophet_signal),
+                    'xgboost_signal': float(xgboost_signal),
                     'technical_signal': float(technical_signal),
                     'volume_signal': float(volume_signal),
+                    'sentiment_signal': float(sentiment_signal),
                     'ensemble_score': float(ensemble_score),
                     'prophet_predicted_price': float(predicted_price),
-                    'model_type': 'Prophet-Enhanced Hybrid Ensemble',
+                    'model_type': 'Prophet+XGBoost Hybrid Ensemble',
                     'bounds_cap': float(final_day_bounds['cap']),
                     'bounds_floor': float(final_day_bounds['floor']),
                     'max_change_pct': float(final_day_bounds['max_change_factor'] * 100)
@@ -175,7 +193,9 @@ class ProphetPredictionService:
             logger.info(
                 f"Hybrid Prediction for {symbol}: {current_price:.2f} -> "
                 f"{final_predicted_price:.2f} ({final_change_percent:+.2f}%) "
-                f"[Prophet: {prophet_signal:.2f}, Technical: {technical_signal:.2f}, Ensemble: {ensemble_score:.2f}]"
+                f"[Prophet: {prophet_signal:.2f}, XGB: {xgboost_signal:.2f}, "
+                f"TA: {technical_signal:.2f}, Sentiment: {sentiment_signal:.2f}, "
+                f"Ensemble: {ensemble_score:.2f}]"
             )
 
             return result
@@ -440,6 +460,17 @@ class ProphetPredictionService:
         
         return future
 
+    def _get_confidence_pct(self, days_ahead: int, total_days: int) -> float:
+        """
+        Calculate confidence percentage that decreases over time.
+        Day 1 ≈ 70%, last day ≈ 35%. Uses exponential decay.
+        """
+        if total_days <= 1:
+            return self.confidence_day1
+        progress = (days_ahead - 1) / (total_days - 1)  # 0.0 at day 1, 1.0 at last day
+        confidence = self.confidence_day1 - (self.confidence_day1 - self.confidence_min) * progress
+        return round(max(confidence, self.confidence_min), 1)
+
     def _train_and_forecast(
         self,
         df: pd.DataFrame,
@@ -647,6 +678,102 @@ class ProphetPredictionService:
 
         return counts
 
+    async def backtest(
+        self,
+        symbol: str,
+        forecast_days: Optional[int] = None,
+        num_windows: int = 5
+    ) -> Optional[Dict]:
+        """
+        Walk-forward backtesting: train on historical subset, predict, compare with actual.
+        Uses sliding windows to evaluate prediction accuracy.
+        
+        Args:
+            symbol: Stock symbol
+            forecast_days: Days to forecast in each window
+            num_windows: Number of test windows (default 5)
+        """
+        try:
+            forecast_days = forecast_days or self.forecast_days
+            
+            historical_data = await mongodb_service.get_historical_prices(
+                symbol=symbol, days=365
+            )
+            
+            if len(historical_data) < 60 + forecast_days:
+                logger.warning(f"Insufficient data for backtesting {symbol}")
+                return None
+            
+            df_full = self._prepare_data(historical_data)
+            if df_full is None or df_full.empty:
+                return None
+            
+            total_rows = len(df_full)
+            # Minimum training size
+            min_train = max(60, total_rows - num_windows * forecast_days)
+            step = max(1, (total_rows - min_train - forecast_days) // max(num_windows - 1, 1))
+            
+            windows = []
+            
+            for i in range(num_windows):
+                train_end_idx = min_train + i * step
+                if train_end_idx + forecast_days > total_rows:
+                    break
+                
+                train_df = df_full.iloc[:train_end_idx].copy()
+                actual_future = df_full.iloc[train_end_idx:train_end_idx + forecast_days]
+                
+                if len(actual_future) == 0:
+                    break
+                
+                # Train and forecast on this window
+                forecast_result = self._train_and_forecast(train_df, len(actual_future))
+                
+                if forecast_result is None or forecast_result.empty:
+                    continue
+                
+                current_price = train_df['y'].iloc[-1]
+                predicted_price = float(forecast_result['yhat'].iloc[-1])
+                actual_price = float(actual_future['y'].iloc[-1])
+                
+                error_pct = ((predicted_price - actual_price) / actual_price) * 100
+                predicted_direction = predicted_price > current_price
+                actual_direction = actual_price > current_price
+                
+                windows.append({
+                    'train_end_date': train_df['ds'].iloc[-1].strftime('%Y-%m-%d'),
+                    'predicted_price': round(predicted_price, 2),
+                    'actual_price': round(actual_price, 2),
+                    'error_pct': round(error_pct, 2),
+                    'direction_correct': predicted_direction == actual_direction,
+                })
+            
+            if not windows:
+                return None
+            
+            errors = [abs(w['error_pct']) for w in windows]
+            signed_errors = [w['error_pct'] for w in windows]
+            direction_hits = sum(1 for w in windows if w['direction_correct'])
+            
+            result = {
+                'symbol': symbol,
+                'forecast_days': forecast_days,
+                'windows': windows,
+                'mape': round(sum(errors) / len(errors), 2),
+                'direction_accuracy': round(direction_hits / len(windows) * 100, 1),
+                'mean_error_pct': round(sum(signed_errors) / len(signed_errors), 2),
+            }
+            
+            logger.info(
+                f"Backtest {symbol}: MAPE={result['mape']:.1f}%, "
+                f"Direction={result['direction_accuracy']:.0f}% ({len(windows)} windows)"
+            )
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error backtesting {symbol}: {e}")
+            return None
+
     async def get_forecast_chart_data(
         self,
         symbol: str,
@@ -746,10 +873,14 @@ class ProphetPredictionService:
             raw_prophet_last = forecast[forecast['ds'] > df['ds'].max()]['yhat'].iloc[-1]
             prophet_change = ((raw_prophet_last - current_price) / current_price) * 100
             prophet_signal = np.tanh(prophet_change / 20.0)
+            sentiment_signal = await sentiment_service.get_sentiment_score(symbol)
+            xgboost_signal = xgboost_service.get_signal(df, forecast_days)
             ensemble_score = (
                 prophet_signal * self.prophet_weight +
+                xgboost_signal * self.xgboost_weight +
                 technical_signal * self.technical_weight +
-                volume_signal * self.volume_weight
+                volume_signal * self.volume_weight +
+                sentiment_signal * self.sentiment_weight
             )
             ensemble_adjustment = 1 + (ensemble_score * 0.1)
             
@@ -803,6 +934,7 @@ class ProphetPredictionService:
                         'predicted': clamp_day(float(row['yhat']) * ensemble_adjustment, days_ahead),
                         'lower': clamp_day(float(row['yhat_lower']) * ensemble_adjustment, days_ahead),
                         'upper': clamp_day(float(row['yhat_upper']) * ensemble_adjustment, days_ahead),
+                        'confidence_pct': self._get_confidence_pct(days_ahead, total_forecast_periods),
                     }
                     chart_data.append(data_point)
 

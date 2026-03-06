@@ -53,7 +53,14 @@ class Recommendation(BaseModel):
 class PredictionRequest(BaseModel):
     """Request model for prediction endpoint"""
     symbol: str
-    forecast_days: Optional[int] = 30
+    forecast_days: Optional[int] = 14
+
+
+PREDICTION_DISCLAIMER = (
+    "Dự đoán này chỉ mang tính tham khảo, không phải lời khuyên đầu tư. "
+    "Mô hình AI có thể sai và không đảm bảo lợi nhuận. "
+    "Hãy tự nghiên cứu trước khi đưa ra quyết định đầu tư."
+)
 
 
 class PredictionResponse(BaseModel):
@@ -67,13 +74,14 @@ class PredictionResponse(BaseModel):
     recommendation: str
     confidence_interval_lower: Optional[float] = None
     confidence_interval_upper: Optional[float] = None
+    disclaimer: str = PREDICTION_DISCLAIMER
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class BatchPredictionRequest(BaseModel):
     """Request model for batch prediction"""
     symbols: List[str]
-    forecast_days: Optional[int] = 30
+    forecast_days: Optional[int] = 14
 
 
 class ForecastDataPoint(BaseModel):
@@ -83,6 +91,7 @@ class ForecastDataPoint(BaseModel):
     predicted: Optional[float] = None  # Predicted price
     lower: Optional[float] = None  # Lower confidence bound
     upper: Optional[float] = None  # Upper confidence bound
+    confidence_pct: Optional[float] = None  # Confidence % (decreases over time)
 
 
 class ForecastChartResponse(BaseModel):
@@ -94,11 +103,32 @@ class ForecastChartResponse(BaseModel):
     change_percent: float
     recommendation: str
     data: List[ForecastDataPoint]  # Chart data points
+    disclaimer: str = PREDICTION_DISCLAIMER
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # Data freshness information
     last_data_date: Optional[str] = None  # Last date of historical data
     data_age_days: Optional[int] = None  # How many days old the data is
     is_data_fresh: Optional[bool] = True  # Whether data is fresh (<= 1 day old)
+
+
+class BacktestResult(BaseModel):
+    """Result of a single backtest window"""
+    train_end_date: str
+    predicted_price: float
+    actual_price: float
+    error_pct: float  # (predicted - actual) / actual * 100
+    direction_correct: bool  # Did we predict the right direction?
+
+
+class BacktestResponse(BaseModel):
+    """Response model for backtesting endpoint"""
+    symbol: str
+    forecast_days: int
+    windows: List[BacktestResult]
+    mape: float  # Mean Absolute Percentage Error
+    direction_accuracy: float  # % of times direction was correct
+    mean_error_pct: float  # Average signed error %
+    disclaimer: str = PREDICTION_DISCLAIMER
 
 
 class HealthResponse(BaseModel):
