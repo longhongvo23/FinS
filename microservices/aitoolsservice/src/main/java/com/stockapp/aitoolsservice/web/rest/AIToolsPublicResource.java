@@ -363,15 +363,21 @@ public class AIToolsPublicResource {
     @Operation(summary = "Generate AI research for watchlist stocks")
     public Mono<ResponseEntity<ResearchAIService.WatchlistSummary>> generateWatchlistResearch(
             @RequestBody WatchlistRequest request) {
-        LOG.info("Public request for watchlist research: {}", request.symbols());
+        LOG.info("Public request for watchlist research: {} (with Prophet AI integration)", request.symbols());
 
         if (request.symbols() == null || request.symbols().isEmpty()) {
             return Mono.just(ResponseEntity.badRequest().build());
         }
 
-        // Fetch stock data for requested symbols
+        // Fetch stock data and Prophet predictions in parallel, then generate summary
         return stockServiceClient.getStockDataForSymbols(request.symbols())
-                .flatMap(stocks -> researchAIService.generateWatchlistSummary(stocks))
+                .flatMap(stocks -> stockServiceClient.getPredictionsForSymbols(request.symbols())
+                        .defaultIfEmpty(java.util.Map.of())
+                        .flatMap(predictions -> {
+                            LOG.info("Watchlist summary: fetched Prophet predictions for {} symbols",
+                                    predictions.size());
+                            return researchAIService.generateWatchlistSummary(stocks, predictions);
+                        }))
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -384,14 +390,16 @@ public class AIToolsPublicResource {
     @Operation(summary = "Get AI-generated alerts for watchlist stocks")
     public Mono<ResponseEntity<ResearchAIService.WatchlistAlerts>> getWatchlistAlerts(
             @RequestBody WatchlistRequest request) {
-        LOG.info("Public request for watchlist alerts: {}", request.symbols());
+        LOG.info("Public request for watchlist alerts: {} (with Prophet AI integration)", request.symbols());
 
         if (request.symbols() == null || request.symbols().isEmpty()) {
             return Mono.just(ResponseEntity.badRequest().build());
         }
 
         return stockServiceClient.getStockDataForSymbols(request.symbols())
-                .flatMap(stocks -> researchAIService.generateWatchlistAlerts(stocks))
+                .flatMap(stocks -> stockServiceClient.getPredictionsForSymbols(request.symbols())
+                        .defaultIfEmpty(java.util.Map.of())
+                        .flatMap(predictions -> researchAIService.generateWatchlistAlerts(stocks, predictions)))
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -403,14 +411,16 @@ public class AIToolsPublicResource {
     @Operation(summary = "Compare and rank watchlist stocks")
     public Mono<ResponseEntity<ResearchAIService.StockComparison>> compareWatchlistStocks(
             @RequestBody WatchlistRequest request) {
-        LOG.info("Public request for watchlist comparison: {}", request.symbols());
+        LOG.info("Public request for watchlist comparison: {} (with Prophet AI integration)", request.symbols());
 
         if (request.symbols() == null || request.symbols().isEmpty()) {
             return Mono.just(ResponseEntity.badRequest().build());
         }
 
         return stockServiceClient.getStockDataForSymbols(request.symbols())
-                .flatMap(stocks -> researchAIService.generateStockComparison(stocks))
+                .flatMap(stocks -> stockServiceClient.getPredictionsForSymbols(request.symbols())
+                        .defaultIfEmpty(java.util.Map.of())
+                        .flatMap(predictions -> researchAIService.generateStockComparison(stocks, predictions)))
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }

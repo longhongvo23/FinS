@@ -125,12 +125,16 @@ public class ResearchAIService {
     }
 
     /**
-     * Generate summary analysis for entire watchlist
+     * Generate summary analysis for entire watchlist.
+     * Integrates Prophet AI predictions to ensure recommendation consistency.
      */
-    public Mono<WatchlistSummary> generateWatchlistSummary(List<GeminiClientService.StockData> stocks) {
-        String prompt = buildWatchlistSummaryPrompt(stocks);
+    public Mono<WatchlistSummary> generateWatchlistSummary(
+            List<GeminiClientService.StockData> stocks,
+            Map<String, PredictionResponse> prophetPredictions) {
+        String prompt = buildWatchlistSummaryPrompt(stocks, prophetPredictions);
         return callAI(prompt)
                 .map(response -> parseJsonResponse(response, WatchlistSummary.class))
+                .map(summary -> overrideWatchlistSummaryWithProphet(summary, prophetPredictions))
                 .onErrorResume(e -> {
                     LOG.error("Error generating watchlist summary: {}", e.getMessage());
                     return Mono.empty();
@@ -138,10 +142,57 @@ public class ResearchAIService {
     }
 
     /**
-     * Generate alerts for watchlist stocks based on price movements
+     * Override watchlist summary recommendations with Prophet predictions.
+     * Ensures bullish/bearish/neutral counts and per-stock actions match Prophet.
      */
-    public Mono<WatchlistAlerts> generateWatchlistAlerts(List<GeminiClientService.StockData> stocks) {
-        String prompt = buildAlertsPrompt(stocks);
+    private WatchlistSummary overrideWatchlistSummaryWithProphet(
+            WatchlistSummary summary,
+            Map<String, PredictionResponse> prophetPredictions) {
+        if (summary == null || prophetPredictions == null || prophetPredictions.isEmpty()) {
+            return summary;
+        }
+
+        // Override each stock recommendation action
+        List<StockRecommendation> overriddenRecs = summary.recommendations() != null
+                ? summary.recommendations().stream().map(rec -> {
+                    PredictionResponse pred = prophetPredictions.get(rec.symbol());
+                    if (pred != null) {
+                        String action = mapSignalToRecommendation(pred.getDominantSignal());
+                        LOG.info("Prophet override watchlist rec for {}: {} -> {}", rec.symbol(), rec.action(), action);
+                        return new StockRecommendation(rec.symbol(), action, rec.priority());
+                    }
+                    return rec;
+                }).toList()
+                : List.of();
+
+        // Recount bullish/bearish/neutral from overridden recommendations
+        int bullish = 0, bearish = 0, neutral = 0;
+        for (StockRecommendation rec : overriddenRecs) {
+            switch (rec.action() != null ? rec.action().toUpperCase() : "") {
+                case "BUY" -> bullish++;
+                case "SELL" -> bearish++;
+                default -> neutral++;
+            }
+        }
+
+        String sentiment = bullish > bearish ? "bullish" : bearish > bullish ? "bearish" : "neutral";
+
+        return new WatchlistSummary(
+                summary.total_stocks(), bullish, bearish, neutral,
+                sentiment, summary.portfolio_score(),
+                summary.top_pick(), summary.top_pick_reason(),
+                summary.worst_performer(), summary.worst_reason(),
+                summary.summary(), overriddenRecs, summary.sector_analysis());
+    }
+
+    /**
+     * Generate alerts for watchlist stocks based on price movements.
+     * Integrates Prophet AI predictions for context.
+     */
+    public Mono<WatchlistAlerts> generateWatchlistAlerts(
+            List<GeminiClientService.StockData> stocks,
+            Map<String, PredictionResponse> prophetPredictions) {
+        String prompt = buildAlertsPrompt(stocks, prophetPredictions);
         return callAI(prompt)
                 .map(response -> parseJsonResponse(response, WatchlistAlerts.class))
                 .onErrorResume(e -> {
@@ -151,10 +202,13 @@ public class ResearchAIService {
     }
 
     /**
-     * Generate quick comparison between watchlist stocks
+     * Generate quick comparison between watchlist stocks.
+     * Integrates Prophet AI predictions for context.
      */
-    public Mono<StockComparison> generateStockComparison(List<GeminiClientService.StockData> stocks) {
-        String prompt = buildComparisonPrompt(stocks);
+    public Mono<StockComparison> generateStockComparison(
+            List<GeminiClientService.StockData> stocks,
+            Map<String, PredictionResponse> prophetPredictions) {
+        String prompt = buildComparisonPrompt(stocks, prophetPredictions);
         return callAI(prompt)
                 .map(response -> parseJsonResponse(response, StockComparison.class))
                 .onErrorResume(e -> {
@@ -442,7 +496,9 @@ public class ResearchAIService {
         };
     }
 
-    private String buildWatchlistSummaryPrompt(List<GeminiClientService.StockData> stocks) {
+    private String buildWatchlistSummaryPrompt(
+            List<GeminiClientService.StockData> stocks,
+            Map<String, PredictionResponse> prophetPredictions) {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
         StringBuilder sb = new StringBuilder();
@@ -452,9 +508,25 @@ public class ResearchAIService {
         sb.append("Phân tích danh sách watchlist sau:\n\n");
 
         for (GeminiClientService.StockData stock : stocks) {
-            sb.append(String.format("- %s: $%.2f, biến động %.2f%%, volume %d\n",
+            sb.append(String.format("- %s: $%.2f, biến động %.2f%%, volume %d",
                     stock.symbol(), stock.price(), stock.percentChange(), stock.volume()));
+            // Append Prophet prediction context per stock
+            if (prophetPredictions != null) {
+                PredictionResponse pred = prophetPredictions.get(stock.symbol());
+                if (pred != null) {
+                    String action = mapSignalToRecommendation(pred.getDominantSignal());
+                    sb.append(String.format(" | Prophet AI: %s", action));
+                    if (pred.change_percent() != null) {
+                        sb.append(String.format(" (%+.2f%%)", pred.change_percent()));
+                    }
+                }
+            }
+            sb.append("\n");
         }
+
+        sb.append("\n=== QUAN TRỌNG ===\n");
+        sb.append("Khuyến nghị BUY/HOLD/SELL cho mỗi cổ phiếu PHẢI tuân theo Prophet AI ở trên.\n");
+        sb.append("Bạn chỉ phân tích nội dung: summary, top_pick_reason, worst_reason, sector_analysis.\n\n");
 
         sb.append("""
 
@@ -481,15 +553,27 @@ public class ResearchAIService {
         return sb.toString();
     }
 
-    private String buildAlertsPrompt(List<GeminiClientService.StockData> stocks) {
+    private String buildAlertsPrompt(
+            List<GeminiClientService.StockData> stocks,
+            Map<String, PredictionResponse> prophetPredictions) {
         StringBuilder sb = new StringBuilder();
         sb.append(
                 "QUAN TRỌNG: Chỉ trả về JSON thuần túy. KHÔNG có bất kỳ text, giải thích, hay lời chào nào trước hoặc sau JSON.\n\n");
         sb.append("Phân tích các cổ phiếu sau và tạo CẢNH BÁO quan trọng:\n\n");
 
         for (GeminiClientService.StockData stock : stocks) {
-            sb.append(String.format("- %s: $%.2f, biến động %.2f%%\n",
+            sb.append(String.format("- %s: $%.2f, biến động %.2f%%",
                     stock.symbol(), stock.price(), stock.percentChange()));
+            if (prophetPredictions != null) {
+                PredictionResponse pred = prophetPredictions.get(stock.symbol());
+                if (pred != null) {
+                    sb.append(String.format(" | Prophet AI: %s", mapSignalToRecommendation(pred.getDominantSignal())));
+                    if (pred.change_percent() != null) {
+                        sb.append(String.format(" (%+.2f%%)", pred.change_percent()));
+                    }
+                }
+            }
+            sb.append("\n");
         }
 
         sb.append("""
@@ -521,15 +605,27 @@ public class ResearchAIService {
         return sb.toString();
     }
 
-    private String buildComparisonPrompt(List<GeminiClientService.StockData> stocks) {
+    private String buildComparisonPrompt(
+            List<GeminiClientService.StockData> stocks,
+            Map<String, PredictionResponse> prophetPredictions) {
         StringBuilder sb = new StringBuilder();
         sb.append(
                 "QUAN TRỌNG: Chỉ trả về JSON thuần túy. KHÔNG có bất kỳ text, giải thích, hay lời chào nào trước hoặc sau JSON.\n\n");
         sb.append("So sánh các cổ phiếu sau trong watchlist:\n\n");
 
         for (GeminiClientService.StockData stock : stocks) {
-            sb.append(String.format("- %s: $%.2f, biến động %.2f%%\n",
+            sb.append(String.format("- %s: $%.2f, biến động %.2f%%",
                     stock.symbol(), stock.price(), stock.percentChange()));
+            if (prophetPredictions != null) {
+                PredictionResponse pred = prophetPredictions.get(stock.symbol());
+                if (pred != null) {
+                    sb.append(String.format(" | Prophet AI: %s", mapSignalToRecommendation(pred.getDominantSignal())));
+                    if (pred.change_percent() != null) {
+                        sb.append(String.format(" (%+.2f%%)", pred.change_percent()));
+                    }
+                }
+            }
+            sb.append("\n");
         }
 
         sb.append("""
