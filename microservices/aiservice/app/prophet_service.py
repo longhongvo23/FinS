@@ -22,15 +22,20 @@ class ProphetPredictionService:
 
     def __init__(self):
         self.forecast_days = settings.PROPHET_FORECAST_DAYS
-        # Optimized hyperparameters for stock market
-        self.changepoint_prior_scale = 0.15  # Increased flexibility for market changes
-        self.seasonality_mode = 'additive'  # Better for stocks than multiplicative
+        # Conservative hyperparameters - prevent overfitting to recent trends
+        self.changepoint_prior_scale = 0.05  # Reduced from 0.15 for stable forecasts
+        self.seasonality_mode = settings.PROPHET_SEASONALITY_MODE
         self.interval_width = settings.PROPHET_INTERVAL_WIDTH
         
         # Ensemble weights
         self.prophet_weight = 0.30
         self.technical_weight = 0.50
         self.volume_weight = 0.20
+        
+        # Realistic forecast constraints
+        # Based on financial market statistics for large/mid-cap stocks
+        self.max_annual_volatility = 0.60  # Cap annualized volatility at 60%
+        self.absolute_max_change_pct = 0.30  # Hard cap: ±30% for any forecast horizon
 
     async def predict(
         self,
@@ -77,6 +82,12 @@ class ProphetPredictionService:
                 logger.error(f"Failed to generate forecast for {symbol}")
                 return None
 
+            # Calculate realistic bounds based on historical volatility
+            bounds = self._calculate_realistic_bounds(df, forecast_days)
+            
+            # Clamp Prophet forecast to realistic bounds
+            forecast_df = self._clamp_forecast_series(forecast_df, bounds)
+
             current_price = df['y'].iloc[-1]
             predicted_price = forecast_df['yhat'].iloc[-1]
             prophet_change_percent = ((predicted_price - current_price) / current_price) * 100
@@ -106,17 +117,22 @@ class ProphetPredictionService:
             # Adjust predicted price based on technical analysis
             ensemble_adjustment = 1 + (ensemble_score * 0.1)  # Max ±10% adjustment
             final_predicted_price = predicted_price * ensemble_adjustment
+            
+            # Apply sanity check - clamp to realistic bounds
+            final_predicted_price = self._apply_sanity_check(
+                final_predicted_price, current_price, bounds
+            )
             final_change_percent = ((final_predicted_price - current_price) / current_price) * 100
 
-            # Get confidence intervals (from Prophet)
+            # Get confidence intervals (from Prophet, already clamped)
             lower_bound = forecast_df['yhat_lower'].iloc[-1]
             upper_bound = forecast_df['yhat_upper'].iloc[-1]
             
             # Adjust confidence intervals with ensemble score
             confidence_adjustment = abs(ensemble_score) * 0.5  # Tighter intervals with stronger signals
             interval_width = (upper_bound - lower_bound) * (1 - confidence_adjustment)
-            lower_bound = final_predicted_price - (interval_width / 2)
-            upper_bound = final_predicted_price + (interval_width / 2)
+            lower_bound = max(final_predicted_price - (interval_width / 2), bounds['floor'])
+            upper_bound = min(final_predicted_price + (interval_width / 2), bounds['cap'])
 
             # Get final recommendation
             recommendation = self._get_recommendation_label(final_change_percent, ensemble_score)
@@ -139,7 +155,10 @@ class ProphetPredictionService:
                     'volume_signal': float(volume_signal),
                     'ensemble_score': float(ensemble_score),
                     'prophet_predicted_price': float(predicted_price),
-                    'model_type': 'Prophet-Enhanced Hybrid Ensemble'
+                    'model_type': 'Prophet-Enhanced Hybrid Ensemble',
+                    'bounds_cap': float(bounds['cap']),
+                    'bounds_floor': float(bounds['floor']),
+                    'max_change_pct': float(bounds['max_change_factor'] * 100)
                 }
             }
 
@@ -216,6 +235,130 @@ class ProphetPredictionService:
             logger.error(f"Error preparing data: {e}")
             return None
 
+    def _calculate_realistic_bounds(
+        self,
+        df: pd.DataFrame,
+        forecast_days: int
+    ) -> Dict:
+        """
+        Calculate realistic price bounds based on historical volatility.
+        Uses statistical approach: max_change = daily_vol * sqrt(days) * z_score
+        This prevents absurd predictions like +500% in 30 days.
+        """
+        current_price = df['y'].iloc[-1]
+        
+        # Calculate historical daily return volatility
+        daily_returns = df['y'].pct_change().dropna()
+        daily_volatility = daily_returns.std()
+        
+        # Annualize and cap volatility estimate
+        annualized_vol = daily_volatility * np.sqrt(252)
+        annualized_vol = min(annualized_vol, self.max_annual_volatility)
+        
+        # Calculate max expected change using volatility scaling
+        # 2.5 sigma covers ~99% of expected outcomes
+        daily_vol_capped = annualized_vol / np.sqrt(252)
+        max_change_factor = daily_vol_capped * np.sqrt(forecast_days) * 2.5
+        
+        # Apply absolute hard cap
+        max_change_factor = min(max_change_factor, self.absolute_max_change_pct)
+        
+        # Ensure minimum bounds (at least ±3%)
+        max_change_factor = max(max_change_factor, 0.03)
+        
+        cap = current_price * (1 + max_change_factor)
+        floor_price = current_price * (1 - max_change_factor)
+        floor_price = max(floor_price, 0.01)  # Price can't go below 0
+        
+        logger.info(
+            f"📊 Realistic bounds for {forecast_days}d forecast: "
+            f"current=${current_price:.2f}, "
+            f"range=[${floor_price:.2f}, ${cap:.2f}] "
+            f"(±{max_change_factor*100:.1f}%), "
+            f"daily_vol={daily_volatility:.4f}, annual_vol={annualized_vol:.4f}"
+        )
+        
+        return {
+            'cap': cap,
+            'floor': floor_price,
+            'max_change_factor': max_change_factor,
+            'daily_volatility': daily_volatility,
+            'current_price': current_price
+        }
+
+    def _apply_sanity_check(
+        self,
+        predicted_price: float,
+        current_price: float,
+        bounds: Dict
+    ) -> float:
+        """
+        Clamp predicted price to realistic bounds.
+        This prevents absurd predictions like +500% in 30 days.
+        """
+        clamped = float(np.clip(predicted_price, bounds['floor'], bounds['cap']))
+        
+        if abs(clamped - predicted_price) > 0.01:
+            change_before = ((predicted_price - current_price) / current_price) * 100
+            change_after = ((clamped - current_price) / current_price) * 100
+            logger.warning(
+                f"🔒 Sanity check: raw prediction ${predicted_price:.2f} ({change_before:+.1f}%) "
+                f"→ clamped to ${clamped:.2f} ({change_after:+.1f}%) "
+                f"[bounds: ${bounds['floor']:.2f} - ${bounds['cap']:.2f}]"
+            )
+        
+        return clamped
+
+    def _clamp_forecast_series(
+        self,
+        forecast_df: pd.DataFrame,
+        bounds: Dict
+    ) -> pd.DataFrame:
+        """
+        Clamp all values in forecast dataframe to realistic bounds.
+        Applies to yhat, yhat_lower, yhat_upper columns.
+        """
+        df = forecast_df.copy()
+        df['yhat'] = df['yhat'].clip(lower=bounds['floor'], upper=bounds['cap'])
+        df['yhat_lower'] = df['yhat_lower'].clip(lower=bounds['floor'], upper=bounds['cap'])
+        df['yhat_upper'] = df['yhat_upper'].clip(lower=bounds['floor'], upper=bounds['cap'])
+        return df
+
+    def _fill_future_regressors(
+        self,
+        future: pd.DataFrame,
+        df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Fill future regressor values with decay.
+        Momentum decays toward zero (mean reversion) to prevent
+        Prophet from extrapolating short-term trends indefinitely.
+        """
+        last_volume = df['volume_feature'].tail(10).mean()
+        last_spread = df['hl_spread'].tail(10).mean()
+        last_momentum = df['momentum'].tail(10).mean()
+        last_date = df['ds'].max()
+        
+        future = future.merge(
+            df[['ds', 'volume_feature', 'hl_spread', 'momentum']],
+            on='ds',
+            how='left'
+        )
+        future['volume_feature'] = future['volume_feature'].fillna(last_volume)
+        future['hl_spread'] = future['hl_spread'].fillna(last_spread)
+        
+        # Decay momentum toward zero for future dates (mean reversion)
+        # This prevents Prophet from extrapolating short-term trends indefinitely
+        future_mask = future['ds'] > last_date
+        if future_mask.any():
+            days_ahead = (future.loc[future_mask, 'ds'] - last_date).dt.days
+            # Exponential decay: momentum halves every 5 days
+            decay_factor = np.exp(-0.139 * days_ahead)  # ln(2)/5 ≈ 0.139
+            future.loc[future_mask, 'momentum'] = last_momentum * decay_factor
+        future['momentum'] = future['momentum'].fillna(0.0)
+        
+        return future
+
     def _train_and_forecast(
         self,
         df: pd.DataFrame,
@@ -247,21 +390,8 @@ class ProphetPredictionService:
             # Create future dataframe
             future = model.make_future_dataframe(periods=forecast_days)
             
-            # For future dates, we need to fill regressor values
-            # Use average of recent values as proxy for future
-            last_volume = df['volume_feature'].tail(10).mean()
-            last_spread = df['hl_spread'].tail(10).mean()
-            last_momentum = df['momentum'].tail(10).mean()
-            
-            # Fill future regressor values
-            future = future.merge(
-                df[['ds', 'volume_feature', 'hl_spread', 'momentum']], 
-                on='ds', 
-                how='left'
-            )
-            future['volume_feature'].fillna(last_volume, inplace=True)
-            future['hl_spread'].fillna(last_spread, inplace=True)
-            future['momentum'].fillna(last_momentum, inplace=True)
+            # Fill future regressor values with momentum decay
+            future = self._fill_future_regressors(future, df)
 
             # Generate forecast
             forecast = model.predict(future)
@@ -506,21 +636,13 @@ class ProphetPredictionService:
             # Create future dataframe - forecast to cover gap + requested days
             future = model.make_future_dataframe(periods=total_forecast_periods)
             
-            # Fill future regressors
-            last_volume = df['volume_feature'].tail(10).mean()
-            last_spread = df['hl_spread'].tail(10).mean()
-            last_momentum = df['momentum'].tail(10).mean()
-            
-            future = future.merge(
-                df[['ds', 'volume_feature', 'hl_spread', 'momentum']], 
-                on='ds', 
-                how='left'
-            )
-            future['volume_feature'].fillna(last_volume, inplace=True)
-            future['hl_spread'].fillna(last_spread, inplace=True)
-            future['momentum'].fillna(last_momentum, inplace=True)
+            # Fill future regressors with momentum decay
+            future = self._fill_future_regressors(future, df)
             
             forecast = model.predict(future)
+            
+            # Calculate realistic bounds and clamp forecast
+            bounds = self._calculate_realistic_bounds(df, forecast_days)
 
             # === Calculate technical analysis for ensemble adjustment ===
             ta_df = df[['open', 'high', 'low', 'y', 'volume']].copy()
@@ -538,6 +660,10 @@ class ProphetPredictionService:
                 volume_signal * self.volume_weight
             )
             ensemble_adjustment = 1 + (ensemble_score * 0.1)
+            
+            # Helper to clamp price to realistic bounds
+            def clamp(price):
+                return float(np.clip(price, bounds['floor'], bounds['cap']))
 
             # Build chart data
             chart_data = []
@@ -577,9 +703,9 @@ class ProphetPredictionService:
                     data_point = {
                         'date': forecast_date.strftime('%Y-%m-%d'),
                         'actual': None,
-                        'predicted': float(row['yhat']) * ensemble_adjustment,
-                        'lower': float(row['yhat_lower']) * ensemble_adjustment,
-                        'upper': float(row['yhat_upper']) * ensemble_adjustment,
+                        'predicted': clamp(float(row['yhat']) * ensemble_adjustment),
+                        'lower': clamp(float(row['yhat_lower']) * ensemble_adjustment),
+                        'upper': clamp(float(row['yhat_upper']) * ensemble_adjustment),
                     }
                     chart_data.append(data_point)
 
@@ -589,10 +715,10 @@ class ProphetPredictionService:
             target_forecast = forecast[forecast['ds'].dt.normalize() == target_date.normalize()]
             
             if not target_forecast.empty:
-                predicted_price = float(target_forecast['yhat'].iloc[0]) * ensemble_adjustment
+                predicted_price = clamp(float(target_forecast['yhat'].iloc[0]) * ensemble_adjustment)
             else:
                 # Fallback to last forecast if exact date not found
-                predicted_price = float(future_forecast['yhat'].iloc[-1]) * ensemble_adjustment
+                predicted_price = clamp(float(future_forecast['yhat'].iloc[-1]) * ensemble_adjustment)
             
             change_percent = ((predicted_price - current_price) / current_price) * 100
 
