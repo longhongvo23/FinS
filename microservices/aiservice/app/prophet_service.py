@@ -22,9 +22,9 @@ class ProphetPredictionService:
 
     def __init__(self):
         self.forecast_days = settings.PROPHET_FORECAST_DAYS
-        # Conservative hyperparameters - prevent overfitting to recent trends
-        self.changepoint_prior_scale = 0.05  # Reduced from 0.15 for stable forecasts
-        self.seasonality_mode = settings.PROPHET_SEASONALITY_MODE
+        # Balanced hyperparameters for stock prediction
+        self.changepoint_prior_scale = 0.08  # Balanced: detect recent changes but don't overfit
+        self.seasonality_mode = 'additive'  # Additive prevents trend amplification
         self.interval_width = settings.PROPHET_INTERVAL_WIDTH
         
         # Ensemble weights
@@ -32,10 +32,14 @@ class ProphetPredictionService:
         self.technical_weight = 0.50
         self.volume_weight = 0.20
         
-        # Realistic forecast constraints
-        # Based on financial market statistics for large/mid-cap stocks
-        self.max_annual_volatility = 0.60  # Cap annualized volatility at 60%
-        self.absolute_max_change_pct = 0.30  # Hard cap: ±30% for any forecast horizon
+        # Trend dampening: blend Prophet prediction toward current price
+        # 0.0 = 100% Prophet, 1.0 = 100% current price (no change)
+        # 0.5 = halfway between Prophet prediction and current price
+        self.trend_dampening_factor = 0.4
+        
+        # Realistic forecast constraints (safety net)
+        self.max_annual_volatility = 0.60
+        self.absolute_max_change_pct = 0.30
 
     async def predict(
         self,
@@ -86,8 +90,12 @@ class ProphetPredictionService:
             vol_params = self._calculate_volatility_params(df)
             last_data_date_ts = df['ds'].max()
             
-            # Clamp Prophet forecast with progressive per-day bounds
+            # Clamp Prophet forecast with progressive per-day bounds (safety net)
             forecast_df = self._clamp_forecast_series(forecast_df, vol_params, last_data_date_ts)
+            
+            # Apply trend dampening: blend Prophet prediction toward current price
+            # This implements mean reversion - stock prices don't trend forever
+            forecast_df = self._apply_trend_dampening(forecast_df, df)
 
             current_price = df['y'].iloc[-1]
             predicted_price = forecast_df['yhat'].iloc[-1]
@@ -229,13 +237,62 @@ class ProphetPredictionService:
             df = df[df['price_change'] < 0.5]  # Remove extreme outliers
             df = df.drop('price_change', axis=1)
             
-            logger.debug(f"Prepared {len(df)} data points with enhanced features for hybrid model")
+            # Add cap and floor for logistic growth model
+            # Cap/floor based on historical price range with generous margin
+            price_min = df['y'].min()
+            price_max = df['y'].max()
+            price_range = price_max - price_min
+            # Cap = max price + 50% of range, Floor = max(min price - 50% of range, 0.01)
+            df['cap'] = price_max + price_range * 0.5
+            df['floor'] = max(price_min - price_range * 0.5, 0.01)
+            
+            logger.debug(f"Prepared {len(df)} data points with logistic growth bounds "
+                        f"[floor={df['floor'].iloc[0]:.2f}, cap={df['cap'].iloc[0]:.2f}]")
             
             return df
 
         except Exception as e:
             logger.error(f"Error preparing data: {e}")
             return None
+
+    def _apply_trend_dampening(
+        self,
+        forecast_df: pd.DataFrame,
+        historical_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Dampen Prophet's trend by blending predictions toward current price.
+        
+        Financial rationale: stock prices exhibit mean reversion.
+        Prophet tends to extrapolate trends indefinitely, which is unrealistic.
+        This blending pulls extreme predictions back toward current levels,
+        with dampening increasing for farther-out forecasts.
+        """
+        df = forecast_df.copy()
+        current_price = historical_df['y'].iloc[-1]
+        last_date = historical_df['ds'].max()
+        max_days = max((df['ds'].max() - last_date).days, 1)
+        
+        for idx in df.index:
+            days_ahead = max((df.loc[idx, 'ds'] - last_date).days, 1)
+            # Progressive dampening: more dampening for farther dates
+            # day 1: dampen_factor * (1/max_days), day 30: dampen_factor * 1.0
+            progress = days_ahead / max_days
+            dampen = self.trend_dampening_factor * progress
+            
+            # Blend: prediction = (1 - dampen) * prophet + dampen * current_price
+            df.loc[idx, 'yhat'] = (1 - dampen) * df.loc[idx, 'yhat'] + dampen * current_price
+            df.loc[idx, 'yhat_lower'] = (1 - dampen) * df.loc[idx, 'yhat_lower'] + dampen * current_price
+            df.loc[idx, 'yhat_upper'] = (1 - dampen) * df.loc[idx, 'yhat_upper'] + dampen * current_price
+        
+        dampened_final = df['yhat'].iloc[-1]
+        change_pct = ((dampened_final - current_price) / current_price) * 100
+        logger.info(
+            f"📉 Trend dampening applied (factor={self.trend_dampening_factor}): "
+            f"final prediction ${dampened_final:.2f} ({change_pct:+.1f}% from ${current_price:.2f})"
+        )
+        
+        return df
 
     def _calculate_volatility_params(
         self,
@@ -389,16 +446,17 @@ class ProphetPredictionService:
         forecast_days: int
     ) -> Optional[pd.DataFrame]:
         """
-        Train enhanced Prophet model with additional regressors
-        Returns forecast with confidence intervals
+        Train Prophet model with logistic growth for natural saturation.
+        Logistic growth prevents infinite trend extrapolation.
         """
         try:
-            # Initialize Prophet model with optimized parameters
+            # Use logistic growth - creates natural S-curve saturation
             model = Prophet(
+                growth='logistic',
                 changepoint_prior_scale=self.changepoint_prior_scale,
                 seasonality_mode=self.seasonality_mode,
                 interval_width=self.interval_width,
-                daily_seasonality=False,  # Stocks don't have daily patterns
+                daily_seasonality=False,
                 weekly_seasonality=True,
                 yearly_seasonality=True
             )
@@ -408,7 +466,7 @@ class ProphetPredictionService:
             model.add_regressor('hl_spread', standardize=True)
             model.add_regressor('momentum', standardize=True)
 
-            # Fit model
+            # Fit model (df already has 'cap' and 'floor' columns)
             model.fit(df)
 
             # Create future dataframe
@@ -416,6 +474,10 @@ class ProphetPredictionService:
             
             # Fill future regressor values with momentum decay
             future = self._fill_future_regressors(future, df)
+            
+            # Logistic growth requires cap and floor in future too
+            future['cap'] = df['cap'].iloc[0]
+            future['floor'] = df['floor'].iloc[0]
 
             # Generate forecast
             forecast = model.predict(future)
@@ -640,12 +702,13 @@ class ProphetPredictionService:
             # We need to forecast from last data date to today + forecast_days
             total_forecast_periods = max(days_gap, 0) + forecast_days
 
-            # === Train Prophet model with regressors ===
+            # === Train Prophet model with logistic growth ===
             model = Prophet(
+                growth='logistic',
                 changepoint_prior_scale=self.changepoint_prior_scale,
                 seasonality_mode=self.seasonality_mode,
                 interval_width=self.interval_width,
-                daily_seasonality=False,  # Optimized for stocks
+                daily_seasonality=False,
                 weekly_seasonality=True,
                 yearly_seasonality=True
             )
@@ -663,6 +726,10 @@ class ProphetPredictionService:
             # Fill future regressors with momentum decay
             future = self._fill_future_regressors(future, df)
             
+            # Logistic growth requires cap and floor in future too
+            future['cap'] = df['cap'].iloc[0]
+            future['floor'] = df['floor'].iloc[0]
+            
             forecast = model.predict(future)
             
             # Calculate volatility params for progressive bounds
@@ -676,7 +743,8 @@ class ProphetPredictionService:
             volume_signal = technical_indicators.get('volume', 0.0)
             
             # Calculate ensemble adjustment
-            prophet_change = ((forecast[forecast['ds'] > df['ds'].max()]['yhat'].iloc[-1] - current_price) / current_price) * 100
+            raw_prophet_last = forecast[forecast['ds'] > df['ds'].max()]['yhat'].iloc[-1]
+            prophet_change = ((raw_prophet_last - current_price) / current_price) * 100
             prophet_signal = np.tanh(prophet_change / 20.0)
             ensemble_score = (
                 prophet_signal * self.prophet_weight +
@@ -684,6 +752,10 @@ class ProphetPredictionService:
                 volume_signal * self.volume_weight
             )
             ensemble_adjustment = 1 + (ensemble_score * 0.1)
+            
+            # Apply trend dampening to future forecast
+            future_forecast_raw = forecast[forecast['ds'] > df['ds'].max()].copy()
+            future_forecast_dampened = self._apply_trend_dampening(future_forecast_raw, df)
             
             # Helper to clamp price with progressive per-day bounds
             def clamp_day(price, days_ahead):
@@ -719,9 +791,8 @@ class ProphetPredictionService:
 
             # Add future forecast data starting from last_data_date + 1 day
             # Filter to only show from TODAY onwards (not historical predictions)
-            future_forecast = forecast[forecast['ds'] > df['ds'].max()].copy()
             
-            for _, row in future_forecast.iterrows():
+            for _, row in future_forecast_dampened.iterrows():
                 forecast_date = row['ds']
                 # Only include dates from today onwards for forecast visualization
                 if forecast_date.normalize() >= today:
@@ -738,15 +809,17 @@ class ProphetPredictionService:
             # Calculate summary with ensemble
             # Get prediction for today + forecast_days
             target_date = today + pd.Timedelta(days=forecast_days)
-            target_forecast = forecast[forecast['ds'].dt.normalize() == target_date.normalize()]
+            target_row = future_forecast_dampened[
+                future_forecast_dampened['ds'].dt.normalize() == target_date.normalize()
+            ]
             
-            if not target_forecast.empty:
+            if not target_row.empty:
                 target_days = max((target_date - last_data_date).days, 1)
-                predicted_price = clamp_day(float(target_forecast['yhat'].iloc[0]) * ensemble_adjustment, target_days)
+                predicted_price = clamp_day(float(target_row['yhat'].iloc[0]) * ensemble_adjustment, target_days)
             else:
                 # Fallback to last forecast if exact date not found
-                last_days = max((future_forecast['ds'].iloc[-1] - last_data_date).days, 1)
-                predicted_price = clamp_day(float(future_forecast['yhat'].iloc[-1]) * ensemble_adjustment, last_days)
+                last_days = max((future_forecast_dampened['ds'].iloc[-1] - last_data_date).days, 1)
+                predicted_price = clamp_day(float(future_forecast_dampened['yhat'].iloc[-1]) * ensemble_adjustment, last_days)
             
             change_percent = ((predicted_price - current_price) / current_price) * 100
 
