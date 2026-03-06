@@ -385,6 +385,10 @@ export const useWatchlistStore = create<WatchlistState>()(
             }
           }),
         }))
+        // Sync removal with backend API
+        watchlistService.removeFromWatchlist(symbol).catch((err) =>
+          console.error('Failed to sync watchlist removal to backend:', err)
+        )
       },
 
       updateStockNote: (watchlistId, symbol, note) => {

@@ -16,6 +16,7 @@ import { SymbolNewsWidget } from '@/components/tradingview/symbol-news'
 import { ProphetForecastChart } from '@/components/stock/prophet-forecast-chart'
 import { watchlistService } from '@/services/watchlist-service'
 import { useAuthStore } from '@/stores/auth-store'
+import { useWatchlistStore } from '@/stores/watchlist-store'
 import { toast } from 'sonner'
 
 // Common US NASDAQ stocks for auto-detecting exchange
@@ -67,10 +68,14 @@ export function StockDetailPage() {
         await watchlistService.removeFromWatchlist(symbol.toUpperCase())
         setIsInWatchlist(false)
         toast.success(`Đã xóa ${symbol.toUpperCase()} khỏi danh sách theo dõi`)
+        // Refresh Zustand store to sync with backend
+        useWatchlistStore.getState().loadWatchlistFromAPI()
       } else {
         await watchlistService.addToWatchlist(symbol.toUpperCase())
         setIsInWatchlist(true)
         toast.success(`Đã thêm ${symbol.toUpperCase()} vào danh sách theo dõi`)
+        // Refresh Zustand store to sync with backend
+        useWatchlistStore.getState().loadWatchlistFromAPI()
       }
     } catch (error) {
       console.error('Failed to toggle watchlist:', error)

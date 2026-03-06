@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -29,8 +29,15 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export function ResearchDashboard() {
-    const { isGuest } = useAuthStore()
-    const { watchlists, activeWatchlistId } = useWatchlistStore()
+    const { isGuest, isAuthenticated } = useAuthStore()
+    const { watchlists, activeWatchlistId, loadWatchlistFromAPI } = useWatchlistStore()
+
+    // Sync watchlist from backend API on mount to get latest data
+    useEffect(() => {
+        if (isAuthenticated && !isGuest) {
+            loadWatchlistFromAPI()
+        }
+    }, [isAuthenticated, isGuest, loadWatchlistFromAPI])
 
     // Show guest restriction if user is guest
     if (isGuest) {

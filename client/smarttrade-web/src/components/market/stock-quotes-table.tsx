@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { watchlistService } from '@/services/watchlist-service';
 import { useAuthStore } from '@/stores/auth-store';
+import { useWatchlistStore } from '@/stores/watchlist-store';
 import { toast } from 'sonner';
 
 // Finnhub API key (same as crawlservice)
@@ -216,10 +217,14 @@ export const StockQuotesTable = memo(() => {
                     return newSet;
                 });
                 toast.success(`Đã xóa ${symbol} khỏi danh sách theo dõi`);
+                // Refresh Zustand store to sync with backend
+                useWatchlistStore.getState().loadWatchlistFromAPI();
             } else {
                 await watchlistService.addToWatchlist(symbol);
                 setWatchlist(prev => new Set(prev).add(symbol));
                 toast.success(`Đã thêm ${symbol} vào danh sách theo dõi`);
+                // Refresh Zustand store to sync with backend
+                useWatchlistStore.getState().loadWatchlistFromAPI();
             }
         } catch (error) {
             toast.error('Không thể cập nhật danh sách theo dõi');
