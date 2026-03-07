@@ -534,6 +534,14 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      # SMTP Email Configuration (Gmail)
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=smtp.gmail.com:587
+      - GF_SMTP_USER=honglongvo23@gmail.com
+      - GF_SMTP_PASSWORD=lemn ubgt lsux uxna
+      - GF_SMTP_FROM_ADDRESS=honglongvo23@gmail.com
+      - GF_SMTP_FROM_NAME=SmartTrade Alert
+      - GF_SMTP_STARTTLS_POLICY=MandatoryStartTLS
     networks:
       - fins-network
     depends_on:

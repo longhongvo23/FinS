@@ -1,13 +1,18 @@
 route:
-  receiver: "webhook"
+  receiver: "email-alert"
   group_by: ["alertname"]
   group_wait: 10s
   group_interval: 1m
   repeat_interval: 2h
 
 receivers:
-  - name: "webhook"
-    webhook_configs:
-      # For testing, create a sample alerting webhook at http://webhook.site/
-      - url: "http://webhook.site/<UUID>"
+  - name: "email-alert"
+    email_configs:
+      - to: "honglongvo23@gmail.com"
+        from: "honglongvo23@gmail.com"
+        smarthost: "smtp.gmail.com:587"
+        auth_username: "honglongvo23@gmail.com"
+        auth_password: "lemn ubgt lsux uxna"
         send_resolved: true
+        headers:
+          Subject: "[FinS] {{ .GroupLabels.alertname }} - {{ .Status }}"
