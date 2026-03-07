@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 const navLinks = [
   { label: 'Tính năng', href: '#features' },
-  { label: 'Bảng giá', href: '#pricing' },
+  { label: 'Dữ liệu & Quy mô', href: '#stats' },
 ]
 
 export function LandingNavbar() {

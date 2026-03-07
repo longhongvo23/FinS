@@ -9,7 +9,7 @@ const stats = [
 
 export function StatsSection() {
   return (
-    <section className="py-20 px-6 border-t border-gray-200 dark:border-[#1E1E1E] bg-gray-50 dark:bg-[#0A0A0A]">
+    <section id="stats" className="py-20 px-6 border-t border-gray-200 dark:border-[#1E1E1E] bg-gray-50 dark:bg-[#0A0A0A]">
       <div className="max-w-6xl mx-auto">
         {/* Section Header */}
         <motion.div
