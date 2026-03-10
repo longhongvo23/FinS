@@ -76,9 +76,9 @@
     "webpack": "5.99.7"
   },
   "dependencies": {
-    "@angular/common": "19.2.9",
-    "@angular/compiler": "19.2.9",
-    "@angular/core": "19.2.9",
+    "@angular/common": "19.2.16",
+    "@angular/compiler": "19.2.18",
+    "@angular/core": "21.1.2",
     "@angular/forms": "19.2.9",
     "@angular/localize": "19.2.9",
     "@angular/platform-browser": "19.2.9",
@@ -101,8 +101,8 @@
   "devDependencies": {
     "@angular-builders/custom-webpack": "19.0.1",
     "@angular-builders/jest": "19.0.1",
-    "@angular-devkit/build-angular": "19.2.10",
-    "@angular/cli": "19.2.10",
+    "@angular-devkit/build-angular": "19.2.19",
+    "@angular/cli": "21.1.2",
     "@angular/compiler-cli": "19.2.9",
     "@angular/service-worker": "19.2.9",
     "@eslint/js": "9.26.0",
@@ -127,7 +127,7 @@
     "jest-sonar": "0.2.16",
     "merge-jsons-webpack-plugin": "2.0.1",
     "prettier": "3.5.3",
-    "prettier-plugin-java": "2.6.7",
+    "prettier-plugin-java": "2.8.1",
     "prettier-plugin-packagejson": "2.5.11",
     "rimraf": "5.0.8",
     "swagger-ui-dist": "5.21.0",
