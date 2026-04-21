@@ -24,7 +24,7 @@ httpx==0.26.0
 aiohttp==3.9.1
 
 # Utilities
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 python-multipart==0.0.6
 APScheduler==3.10.4
 
